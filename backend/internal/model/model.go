@@ -176,6 +176,51 @@ type AutoSyncExecutionLog struct {
 	Detail  RawJSON `gorm:"type:jsonb" json:"detail"`
 }
 
+// ProxyAccessLog 记录外部访问 TMDB 代理入口的请求与响应摘要。
+type ProxyAccessLog struct {
+	gorm.Model
+	RequestID string `gorm:"size:64;index" json:"request_id"`
+	Method    string `gorm:"size:16;index" json:"method"`
+
+	Path       string `gorm:"type:text" json:"path"`
+	Query      string `gorm:"type:text" json:"query"`
+	RequestURI string `gorm:"type:text" json:"request_uri"`
+	ClientIP   string `gorm:"size:128;index" json:"client_ip"`
+	UserAgent  string `gorm:"type:text" json:"user_agent"`
+
+	StatusCode   int    `gorm:"index" json:"status_code"`
+	DurationMs   int64  `json:"duration_ms"`
+	ErrorMessage string `gorm:"type:text" json:"error_message"`
+
+	RequestBody           string `gorm:"type:text" json:"request_body"`
+	RequestBodyBytes      int64  `json:"request_body_bytes"`
+	RequestBodyTruncated  bool   `json:"request_body_truncated"`
+	ResponseBody          string `gorm:"type:text" json:"response_body"`
+	ResponseBodyBytes     int64  `json:"response_body_bytes"`
+	ResponseBodyTruncated bool   `json:"response_body_truncated"`
+}
+
+// TmdbRequestLog 记录服务端真实请求 TMDB 上游的结果。
+type TmdbRequestLog struct {
+	gorm.Model
+	RequestID string `gorm:"size:64;index" json:"request_id"`
+	Method    string `gorm:"size:16;index" json:"method"`
+
+	Path string `gorm:"type:text" json:"path"`
+	URL  string `gorm:"type:text" json:"url"`
+
+	StatusCode   int    `gorm:"index" json:"status_code"`
+	DurationMs   int64  `json:"duration_ms"`
+	ErrorMessage string `gorm:"type:text" json:"error_message"`
+
+	RequestBody           string `gorm:"type:text" json:"request_body"`
+	RequestBodyBytes      int64  `json:"request_body_bytes"`
+	RequestBodyTruncated  bool   `json:"request_body_truncated"`
+	ResponseBody          string `gorm:"type:text" json:"response_body"`
+	ResponseBodyBytes     int64  `json:"response_body_bytes"`
+	ResponseBodyTruncated bool   `json:"response_body_truncated"`
+}
+
 // AutoMigrate 自动建表迁移
 func AutoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(
@@ -186,6 +231,8 @@ func AutoMigrate(db *gorm.DB) error {
 		&Person{},
 		&PersonLangSnapshot{},
 		&AutoSyncExecutionLog{},
+		&ProxyAccessLog{},
+		&TmdbRequestLog{},
 	)
 }
 
@@ -196,6 +243,8 @@ func EnsureQueryIndexes(db *gorm.DB) error {
 		"CREATE INDEX IF NOT EXISTS idx_tv_series_popularity_desc ON tv_series (popularity DESC)",
 		"CREATE INDEX IF NOT EXISTS idx_movies_original_title ON movies (original_title)",
 		"CREATE INDEX IF NOT EXISTS idx_tv_series_original_name ON tv_series (original_name)",
+		"CREATE INDEX IF NOT EXISTS idx_proxy_access_logs_created_at_desc ON proxy_access_logs (created_at DESC)",
+		"CREATE INDEX IF NOT EXISTS idx_tmdb_request_logs_created_at_desc ON tmdb_request_logs (created_at DESC)",
 	}
 
 	for _, stmt := range statements {

@@ -15,6 +15,7 @@ func parseRequestOptions(r *http.Request) *tmdbclient.RequestOption {
 
 	opts := &tmdbclient.RequestOption{
 		Context:          r.Context(),
+		RequestID:        requestIDFromContext(r.Context()),
 		Language:         q.Get("language"),
 		Page:             page,
 		Region:           q.Get("region"),

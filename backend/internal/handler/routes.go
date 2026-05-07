@@ -72,6 +72,36 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: admin.CompareTvRemoteHandler(serverCtx),
 			},
 			{
+				Method:  http.MethodGet,
+				Path:    "/logs/access",
+				Handler: admin.ListProxyAccessLogsHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodDelete,
+				Path:    "/logs/access",
+				Handler: admin.ClearProxyAccessLogsHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/logs/access/:id",
+				Handler: admin.GetProxyAccessLogDetailHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/logs/tmdb",
+				Handler: admin.ListTmdbRequestLogsHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodDelete,
+				Path:    "/logs/tmdb",
+				Handler: admin.ClearTmdbRequestLogsHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/logs/tmdb/:id",
+				Handler: admin.GetTmdbRequestLogDetailHandler(serverCtx),
+			},
+			{
 				Method:  http.MethodPost,
 				Path:    "/movie",
 				Handler: admin.CreateMovieHandler(serverCtx),

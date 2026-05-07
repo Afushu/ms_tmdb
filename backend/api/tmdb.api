@@ -283,6 +283,120 @@ type (
 		PageSize int                    `json:"page_size"`
 		Results  []AdminAutoSyncLogItem `json:"results"`
 	}
+	// 管理接口 - 清空请求日志响应
+	AdminRequestLogClearResp {
+		Message string `json:"message"`
+	}
+	// 管理接口 - 代理访问日志列表请求
+	AdminProxyAccessLogListReq {
+		Page     int    `form:"page,optional,default=1"`
+		PageSize int    `form:"page_size,optional,default=20"`
+		Status   string `form:"status,optional"`
+		Keyword  string `form:"keyword,optional"`
+	}
+	// 管理接口 - 代理访问日志详情请求
+	AdminProxyAccessLogDetailReq {
+		Id int `path:"id"`
+	}
+	// 管理接口 - 代理访问日志项
+	AdminProxyAccessLogItem {
+		Id                    int64  `json:"id"`
+		RequestId             string `json:"request_id"`
+		Method                string `json:"method"`
+		Path                  string `json:"path"`
+		Query                 string `json:"query"`
+		RequestUri            string `json:"request_uri"`
+		ClientIp              string `json:"client_ip"`
+		UserAgent             string `json:"user_agent"`
+		StatusCode            int    `json:"status_code"`
+		DurationMs            int64  `json:"duration_ms"`
+		ErrorMessage          string `json:"error_message"`
+		RequestBodyBytes      int64  `json:"request_body_bytes"`
+		RequestBodyTruncated  bool   `json:"request_body_truncated"`
+		ResponseBodyBytes     int64  `json:"response_body_bytes"`
+		ResponseBodyTruncated bool   `json:"response_body_truncated"`
+		CreatedAt             string `json:"created_at"`
+	}
+	// 管理接口 - 代理访问日志详情响应
+	AdminProxyAccessLogDetailResp {
+		Id                    int64  `json:"id"`
+		RequestId             string `json:"request_id"`
+		Method                string `json:"method"`
+		Path                  string `json:"path"`
+		Query                 string `json:"query"`
+		RequestUri            string `json:"request_uri"`
+		ClientIp              string `json:"client_ip"`
+		UserAgent             string `json:"user_agent"`
+		StatusCode            int    `json:"status_code"`
+		DurationMs            int64  `json:"duration_ms"`
+		ErrorMessage          string `json:"error_message"`
+		RequestBody           string `json:"request_body"`
+		RequestBodyBytes      int64  `json:"request_body_bytes"`
+		RequestBodyTruncated  bool   `json:"request_body_truncated"`
+		ResponseBody          string `json:"response_body"`
+		ResponseBodyBytes     int64  `json:"response_body_bytes"`
+		ResponseBodyTruncated bool   `json:"response_body_truncated"`
+		CreatedAt             string `json:"created_at"`
+	}
+	// 管理接口 - 代理访问日志列表响应
+	AdminProxyAccessLogListResp {
+		Total    int64                     `json:"total"`
+		Page     int                       `json:"page"`
+		PageSize int                       `json:"page_size"`
+		Results  []AdminProxyAccessLogItem `json:"results"`
+	}
+	// 管理接口 - TMDB 请求日志列表请求
+	AdminTmdbRequestLogListReq {
+		Page     int    `form:"page,optional,default=1"`
+		PageSize int    `form:"page_size,optional,default=20"`
+		Status   string `form:"status,optional"`
+		Keyword  string `form:"keyword,optional"`
+	}
+	// 管理接口 - TMDB 请求日志详情请求
+	AdminTmdbRequestLogDetailReq {
+		Id int `path:"id"`
+	}
+	// 管理接口 - TMDB 请求日志项
+	AdminTmdbRequestLogItem {
+		Id                    int64  `json:"id"`
+		RequestId             string `json:"request_id"`
+		Method                string `json:"method"`
+		Path                  string `json:"path"`
+		Url                   string `json:"url"`
+		StatusCode            int    `json:"status_code"`
+		DurationMs            int64  `json:"duration_ms"`
+		ErrorMessage          string `json:"error_message"`
+		RequestBodyBytes      int64  `json:"request_body_bytes"`
+		RequestBodyTruncated  bool   `json:"request_body_truncated"`
+		ResponseBodyBytes     int64  `json:"response_body_bytes"`
+		ResponseBodyTruncated bool   `json:"response_body_truncated"`
+		CreatedAt             string `json:"created_at"`
+	}
+	// 管理接口 - TMDB 请求日志详情响应
+	AdminTmdbRequestLogDetailResp {
+		Id                    int64  `json:"id"`
+		RequestId             string `json:"request_id"`
+		Method                string `json:"method"`
+		Path                  string `json:"path"`
+		Url                   string `json:"url"`
+		StatusCode            int    `json:"status_code"`
+		DurationMs            int64  `json:"duration_ms"`
+		ErrorMessage          string `json:"error_message"`
+		RequestBody           string `json:"request_body"`
+		RequestBodyBytes      int64  `json:"request_body_bytes"`
+		RequestBodyTruncated  bool   `json:"request_body_truncated"`
+		ResponseBody          string `json:"response_body"`
+		ResponseBodyBytes     int64  `json:"response_body_bytes"`
+		ResponseBodyTruncated bool   `json:"response_body_truncated"`
+		CreatedAt             string `json:"created_at"`
+	}
+	// 管理接口 - TMDB 请求日志列表响应
+	AdminTmdbRequestLogListResp {
+		Total    int64                     `json:"total"`
+		Page     int                       `json:"page"`
+		PageSize int                       `json:"page_size"`
+		Results  []AdminTmdbRequestLogItem `json:"results"`
+	}
 	// 管理接口 - 远程差异检测响应
 	AdminCompareFieldDetail {
 		Field    string `json:"field"`
@@ -696,6 +810,24 @@ service tmdb-api {
 
 	@handler GetAutoSyncLogDetail
 	get /auto-sync/logs/:id (AdminAutoSyncLogDetailReq) returns (AdminAutoSyncLogDetailResp)
+
+	@handler ListProxyAccessLogs
+	get /logs/access (AdminProxyAccessLogListReq) returns (AdminProxyAccessLogListResp)
+
+	@handler ClearProxyAccessLogs
+	delete /logs/access returns (AdminRequestLogClearResp)
+
+	@handler GetProxyAccessLogDetail
+	get /logs/access/:id (AdminProxyAccessLogDetailReq) returns (AdminProxyAccessLogDetailResp)
+
+	@handler ListTmdbRequestLogs
+	get /logs/tmdb (AdminTmdbRequestLogListReq) returns (AdminTmdbRequestLogListResp)
+
+	@handler ClearTmdbRequestLogs
+	delete /logs/tmdb returns (AdminRequestLogClearResp)
+
+	@handler GetTmdbRequestLogDetail
+	get /logs/tmdb/:id (AdminTmdbRequestLogDetailReq) returns (AdminTmdbRequestLogDetailResp)
 
 	@handler UploadImage
 	post /upload/image returns (AdminUploadResp)

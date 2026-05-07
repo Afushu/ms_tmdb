@@ -4,6 +4,7 @@ import { onBeforeUnmount, onMounted, ref } from "vue";
 const navItems = [
   { to: "/", label: "首页" },
   { to: "/library", label: "库" },
+  { to: "/logs", label: "日志" },
   { to: "/system-settings", label: "系统设置" },
 ];
 

@@ -136,6 +136,76 @@ export type AdminAutoSyncLogListParams = {
   status?: string;
 };
 
+export type AdminRequestLogListParams = {
+  page?: number;
+  page_size?: number;
+  status?: string;
+  keyword?: string;
+};
+
+export type AdminRequestLogClearResp = {
+  message: string;
+};
+
+export type AdminProxyAccessLogItem = {
+  id: number;
+  request_id: string;
+  method: string;
+  path: string;
+  query: string;
+  request_uri: string;
+  client_ip: string;
+  user_agent: string;
+  status_code: number;
+  duration_ms: number;
+  error_message: string;
+  request_body_bytes: number;
+  request_body_truncated: boolean;
+  response_body_bytes: number;
+  response_body_truncated: boolean;
+  created_at: string;
+};
+
+export type AdminProxyAccessLogDetailResp = AdminProxyAccessLogItem & {
+  request_body: string;
+  response_body: string;
+};
+
+export type AdminProxyAccessLogListResp = {
+  total: number;
+  page: number;
+  page_size: number;
+  results: AdminProxyAccessLogItem[];
+};
+
+export type AdminTmdbRequestLogItem = {
+  id: number;
+  request_id: string;
+  method: string;
+  path: string;
+  url: string;
+  status_code: number;
+  duration_ms: number;
+  error_message: string;
+  request_body_bytes: number;
+  request_body_truncated: boolean;
+  response_body_bytes: number;
+  response_body_truncated: boolean;
+  created_at: string;
+};
+
+export type AdminTmdbRequestLogDetailResp = AdminTmdbRequestLogItem & {
+  request_body: string;
+  response_body: string;
+};
+
+export type AdminTmdbRequestLogListResp = {
+  total: number;
+  page: number;
+  page_size: number;
+  results: AdminTmdbRequestLogItem[];
+};
+
 export type AdminCompareResp = {
   has_diff: boolean;
   diff_fields: string[];
@@ -349,6 +419,30 @@ export function getAutoSyncLogDetail(id: number, params: AdminAutoSyncLogDetailP
 
 export function clearAutoSyncLogs() {
   return http.delete<AdminAutoSyncLogClearResp>("/api/admin/auto-sync/logs");
+}
+
+export function getProxyAccessLogs(params: AdminRequestLogListParams = {}) {
+  return http.get<AdminProxyAccessLogListResp>("/api/admin/logs/access", { params });
+}
+
+export function getProxyAccessLogDetail(id: number) {
+  return http.get<AdminProxyAccessLogDetailResp>(`/api/admin/logs/access/${id}`);
+}
+
+export function clearProxyAccessLogs() {
+  return http.delete<AdminRequestLogClearResp>("/api/admin/logs/access");
+}
+
+export function getTmdbRequestLogs(params: AdminRequestLogListParams = {}) {
+  return http.get<AdminTmdbRequestLogListResp>("/api/admin/logs/tmdb", { params });
+}
+
+export function getTmdbRequestLogDetail(id: number) {
+  return http.get<AdminTmdbRequestLogDetailResp>(`/api/admin/logs/tmdb/${id}`);
+}
+
+export function clearTmdbRequestLogs() {
+  return http.delete<AdminRequestLogClearResp>("/api/admin/logs/tmdb");
 }
 
 export function uploadAdminImage(file: File) {

@@ -15,7 +15,10 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-const defaultHTTPTimeout = 15 * time.Second
+const (
+	defaultHTTPTimeout       = 15 * time.Second
+	defaultRequestLogTimeout = 3 * time.Second
+)
 
 // APIError 表示 TMDB 上游返回的非 200 响应，保留状态码便于上层按场景映射提示。
 type APIError struct {
@@ -49,6 +52,8 @@ type Client struct {
 
 	// 简单令牌桶限流
 	rateLimiter chan struct{}
+
+	requestLogger RequestLogger
 }
 
 // NewClient 创建 TMDB 客户端
@@ -132,11 +137,37 @@ func (c *Client) SetProxy(proxyURL string) error {
 // RequestOption 请求选项
 type RequestOption struct {
 	Context          context.Context
+	RequestID        string
 	Language         string
 	Page             int
 	Region           string
 	AppendToResponse string
 	ExtraParams      map[string]string
+}
+
+// RequestLogEntry 描述一次真实 TMDB 上游请求，供业务层选择性落库。
+type RequestLogEntry struct {
+	RequestID string
+	Method    string
+	Path      string
+	URL       string
+
+	StatusCode   int
+	DurationMs   int64
+	ErrorMessage string
+
+	RequestBody  []byte
+	ResponseBody []byte
+}
+
+// RequestLogger 是 TMDB 请求日志回调。回调失败不能影响原始请求。
+type RequestLogger func(ctx context.Context, entry RequestLogEntry)
+
+// SetRequestLogger 设置真实 TMDB 请求日志回调。
+func (c *Client) SetRequestLogger(logger RequestLogger) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.requestLogger = logger
 }
 
 // Get 发送 GET 请求到 TMDB API
@@ -171,25 +202,85 @@ func (c *Client) Get(path string, opts *RequestOption) (json.RawMessage, error) 
 	httpClient := c.httpClient
 	c.mu.RUnlock()
 
+	startedAt := time.Now()
+	logEntry := RequestLogEntry{
+		Method:    http.MethodGet,
+		Path:      path,
+		URL:       maskSensitiveQuery(reqURL),
+		RequestID: requestIDFromOption(opts),
+	}
+	defer func() {
+		logEntry.DurationMs = time.Since(startedAt).Milliseconds()
+		c.writeRequestLog(ctx, logEntry)
+	}()
+
 	resp, err := httpClient.Do(req)
 	if err != nil {
+		logEntry.ErrorMessage = err.Error()
 		return nil, fmt.Errorf("TMDB 请求失败: %w", err)
 	}
 	defer resp.Body.Close()
+	logEntry.StatusCode = resp.StatusCode
 
 	body, err := io.ReadAll(resp.Body)
+	logEntry.ResponseBody = body
 	if err != nil {
+		logEntry.ErrorMessage = err.Error()
 		return nil, fmt.Errorf("读取响应失败: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, &APIError{
+		apiErr := &APIError{
 			StatusCode: resp.StatusCode,
 			Body:       string(body),
 		}
+		logEntry.ErrorMessage = apiErr.Error()
+		return nil, apiErr
 	}
 
 	return json.RawMessage(body), nil
+}
+
+func (c *Client) writeRequestLog(ctx context.Context, entry RequestLogEntry) {
+	c.mu.RLock()
+	logger := c.requestLogger
+	c.mu.RUnlock()
+	if logger == nil {
+		return
+	}
+
+	entry = cloneRequestLogEntry(entry)
+	go func() {
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				logx.Errorf("TMDB 请求日志回调异常: %v", recovered)
+			}
+		}()
+
+		logCtx, cancel := context.WithTimeout(detachedContext(ctx), defaultRequestLogTimeout)
+		defer cancel()
+		logger(logCtx, entry)
+	}()
+}
+
+func requestIDFromOption(opts *RequestOption) string {
+	if opts == nil {
+		return ""
+	}
+	return strings.TrimSpace(opts.RequestID)
+}
+
+func cloneRequestLogEntry(entry RequestLogEntry) RequestLogEntry {
+	entry.RequestBody = append([]byte(nil), entry.RequestBody...)
+	entry.ResponseBody = append([]byte(nil), entry.ResponseBody...)
+	return entry
+}
+
+func detachedContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		return context.Background()
+	}
+	return context.WithoutCancel(ctx)
 }
 
 // Request 通用请求方法（Get 的别名），供中间件透传路径使用
@@ -240,8 +331,10 @@ func maskSensitiveQuery(rawURL string) string {
 	}
 
 	q := u.Query()
-	if q.Has("api_key") {
-		q.Set("api_key", "***")
+	for key := range q {
+		if strings.EqualFold(key, "api_key") {
+			q.Set(key, "***")
+		}
 	}
 	u.RawQuery = q.Encode()
 	return u.String()

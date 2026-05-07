@@ -168,6 +168,64 @@ type AdminCreateTvReq struct {
 	GenreNames       []string `json:"genre_names,optional"`
 }
 
+type AdminProxyAccessLogDetailReq struct {
+	Id int `path:"id"`
+}
+
+type AdminProxyAccessLogDetailResp struct {
+	Id                    int64  `json:"id"`
+	RequestId             string `json:"request_id"`
+	Method                string `json:"method"`
+	Path                  string `json:"path"`
+	Query                 string `json:"query"`
+	RequestUri            string `json:"request_uri"`
+	ClientIp              string `json:"client_ip"`
+	UserAgent             string `json:"user_agent"`
+	StatusCode            int    `json:"status_code"`
+	DurationMs            int64  `json:"duration_ms"`
+	ErrorMessage          string `json:"error_message"`
+	RequestBody           string `json:"request_body"`
+	RequestBodyBytes      int64  `json:"request_body_bytes"`
+	RequestBodyTruncated  bool   `json:"request_body_truncated"`
+	ResponseBody          string `json:"response_body"`
+	ResponseBodyBytes     int64  `json:"response_body_bytes"`
+	ResponseBodyTruncated bool   `json:"response_body_truncated"`
+	CreatedAt             string `json:"created_at"`
+}
+
+type AdminProxyAccessLogItem struct {
+	Id                    int64  `json:"id"`
+	RequestId             string `json:"request_id"`
+	Method                string `json:"method"`
+	Path                  string `json:"path"`
+	Query                 string `json:"query"`
+	RequestUri            string `json:"request_uri"`
+	ClientIp              string `json:"client_ip"`
+	UserAgent             string `json:"user_agent"`
+	StatusCode            int    `json:"status_code"`
+	DurationMs            int64  `json:"duration_ms"`
+	ErrorMessage          string `json:"error_message"`
+	RequestBodyBytes      int64  `json:"request_body_bytes"`
+	RequestBodyTruncated  bool   `json:"request_body_truncated"`
+	ResponseBodyBytes     int64  `json:"response_body_bytes"`
+	ResponseBodyTruncated bool   `json:"response_body_truncated"`
+	CreatedAt             string `json:"created_at"`
+}
+
+type AdminProxyAccessLogListReq struct {
+	Page     int    `form:"page,optional,default=1"`
+	PageSize int    `form:"page_size,optional,default=20"`
+	Status   string `form:"status,optional"`
+	Keyword  string `form:"keyword,optional"`
+}
+
+type AdminProxyAccessLogListResp struct {
+	Total    int64                     `json:"total"`
+	Page     int                       `json:"page"`
+	PageSize int                       `json:"page_size"`
+	Results  []AdminProxyAccessLogItem `json:"results"`
+}
+
 type AdminProxyReq struct {
 	ProxyURL          string `json:"proxy_url,optional"`
 	LocalWriteEnabled *bool  `json:"local_write_enabled,optional"`
@@ -177,6 +235,10 @@ type AdminProxyResp struct {
 	ProxyURL          string `json:"proxy_url"`
 	Enabled           bool   `json:"enabled"`
 	LocalWriteEnabled bool   `json:"local_write_enabled"`
+}
+
+type AdminRequestLogClearResp struct {
+	Message string `json:"message"`
 }
 
 type AdminSyncReq struct {
@@ -192,6 +254,58 @@ type AdminSyncResp struct {
 	KeptLocalFields []string `json:"kept_local_fields"`
 	IsModified      bool     `json:"is_modified"`
 	Message         string   `json:"message"`
+}
+
+type AdminTmdbRequestLogDetailReq struct {
+	Id int `path:"id"`
+}
+
+type AdminTmdbRequestLogDetailResp struct {
+	Id                    int64  `json:"id"`
+	RequestId             string `json:"request_id"`
+	Method                string `json:"method"`
+	Path                  string `json:"path"`
+	Url                   string `json:"url"`
+	StatusCode            int    `json:"status_code"`
+	DurationMs            int64  `json:"duration_ms"`
+	ErrorMessage          string `json:"error_message"`
+	RequestBody           string `json:"request_body"`
+	RequestBodyBytes      int64  `json:"request_body_bytes"`
+	RequestBodyTruncated  bool   `json:"request_body_truncated"`
+	ResponseBody          string `json:"response_body"`
+	ResponseBodyBytes     int64  `json:"response_body_bytes"`
+	ResponseBodyTruncated bool   `json:"response_body_truncated"`
+	CreatedAt             string `json:"created_at"`
+}
+
+type AdminTmdbRequestLogItem struct {
+	Id                    int64  `json:"id"`
+	RequestId             string `json:"request_id"`
+	Method                string `json:"method"`
+	Path                  string `json:"path"`
+	Url                   string `json:"url"`
+	StatusCode            int    `json:"status_code"`
+	DurationMs            int64  `json:"duration_ms"`
+	ErrorMessage          string `json:"error_message"`
+	RequestBodyBytes      int64  `json:"request_body_bytes"`
+	RequestBodyTruncated  bool   `json:"request_body_truncated"`
+	ResponseBodyBytes     int64  `json:"response_body_bytes"`
+	ResponseBodyTruncated bool   `json:"response_body_truncated"`
+	CreatedAt             string `json:"created_at"`
+}
+
+type AdminTmdbRequestLogListReq struct {
+	Page     int    `form:"page,optional,default=1"`
+	PageSize int    `form:"page_size,optional,default=20"`
+	Status   string `form:"status,optional"`
+	Keyword  string `form:"keyword,optional"`
+}
+
+type AdminTmdbRequestLogListResp struct {
+	Total    int64                     `json:"total"`
+	Page     int                       `json:"page"`
+	PageSize int                       `json:"page_size"`
+	Results  []AdminTmdbRequestLogItem `json:"results"`
 }
 
 type AdminTvSeasonLocalReq struct {

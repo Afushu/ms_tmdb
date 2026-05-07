@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net/http"
@@ -33,6 +34,12 @@ func main() {
 	defer server.Stop()
 
 	ctx := svc.NewServiceContext(c)
+	if err := ctx.LogService.CleanupExpired(context.Background()); err != nil {
+		logx.Errorf("启动时清理请求日志失败: %v", err)
+	}
+	stopLogCleaner := ctx.LogService.StartRetentionCleaner(context.Background())
+	defer stopLogCleaner()
+
 	autoSyncScheduler := adminlogic.NewLibraryAutoSyncScheduler(ctx)
 	adminlogic.SetLibraryAutoSyncScheduler(autoSyncScheduler)
 	autoSyncScheduler.Start()
@@ -40,10 +47,12 @@ func main() {
 
 	// 注册 TMDB 代理中间件。/api/v3 的文档路由由 goctl 生成，
 	// 这里用全局中间件在路由命中后直接返回代理结果，避免模板 logic 接管真实请求。
+	requestLog := middleware.NewRequestLogMiddleware(ctx.LogService)
 	tmdbProxy := middleware.NewTmdbProxyMiddleware(ctx.TmdbClient, ctx.ProxyService)
 	proxyHandler := tmdbProxy.Handle(func(w http.ResponseWriter, r *http.Request) {
 		httpx.ErrorCtx(r.Context(), w, fmt.Errorf("未知路径: %s", r.URL.Path))
 	})
+	server.Use(requestLog.Handle)
 	server.Use(tmdbProxy.Handle)
 	handler.RegisterHandlers(server, ctx)
 	registerTmdbProxyFallbackRoutes(server, proxyHandler)

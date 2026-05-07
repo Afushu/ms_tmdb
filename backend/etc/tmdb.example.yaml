@@ -27,3 +27,6 @@ Tmdb:
     Mode: "update_unmodified"
     BatchSize: 50
     StartDelaySecond: 15
+  Log:
+    RetentionDays: 7
+    BodyLimitBytes: 65536

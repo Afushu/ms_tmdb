@@ -23,6 +23,7 @@ type Config struct {
 		ProxyURL          string           `json:",optional"`
 		LocalWriteEnabled bool             `json:",default=true"`
 		AutoSync          TmdbAutoSyncConf `json:",optional"`
+		Log               TmdbLogConf      `json:",optional"`
 	}
 }
 
@@ -33,6 +34,12 @@ type TmdbAutoSyncConf struct {
 	Mode             string `json:",optional"`
 	BatchSize        int    `json:",optional"`
 	StartDelaySecond int    `json:",optional"`
+}
+
+// TmdbLogConf TMDB 代理与回源请求日志配置
+type TmdbLogConf struct {
+	RetentionDays  int `json:",optional"`
+	BodyLimitBytes int `json:",optional"`
 }
 
 // PostgresConf PostgreSQL 连接配置

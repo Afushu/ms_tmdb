@@ -1,9 +1,11 @@
 package svc
 
 import (
+	"context"
 	"ms_tmdb/config"
 	"ms_tmdb/internal/logic/proxy"
 	"ms_tmdb/internal/model"
+	"ms_tmdb/internal/service"
 	"ms_tmdb/pkg/tmdbclient"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -16,6 +18,7 @@ type ServiceContext struct {
 	DB           *gorm.DB
 	TmdbClient   *tmdbclient.Client
 	ProxyService *proxy.ProxyService
+	LogService   *service.RequestLogService
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -45,11 +48,31 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		c.Tmdb.RateLimit,
 		c.Tmdb.ProxyURL,
 	)
+	logService := service.NewRequestLogService(db, c.Tmdb.Log)
+	client.SetRequestLogger(func(ctx context.Context, entry tmdbclient.RequestLogEntry) {
+		err := logService.WriteTmdbRequest(ctx, service.TmdbRequestEntry{
+			RequestID: entry.RequestID,
+			Method:    entry.Method,
+			Path:      entry.Path,
+			URL:       entry.URL,
+
+			StatusCode:   entry.StatusCode,
+			DurationMs:   entry.DurationMs,
+			ErrorMessage: entry.ErrorMessage,
+
+			RequestBody:  logService.CaptureBody(entry.RequestBody),
+			ResponseBody: logService.CaptureBody(entry.ResponseBody),
+		})
+		if err != nil {
+			logx.Errorf("写入 TMDB 请求日志失败: %v", err)
+		}
+	})
 
 	return &ServiceContext{
 		Config:       c,
 		DB:           db,
 		TmdbClient:   client,
 		ProxyService: proxy.NewProxyService(db, client, c.Tmdb.DefaultLanguage, c.Tmdb.LocalWriteEnabled),
+		LogService:   logService,
 	}
 }
