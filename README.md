@@ -64,6 +64,7 @@ pnpm dev
 先修改 `tmdb.yaml` 中的数据库连接与 `Tmdb.ApiKey`，再在该目录启动：
 
 ```bash
+docker compose pull
 docker compose up -d
 ```
 

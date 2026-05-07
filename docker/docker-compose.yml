@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   app:
-    image: ghcr.io/gatecross/ms_tmdb:latest
+    image: sereindusk/ms_tmdb:latest
     container_name: ms_tmdb_app
     environment:
       TMDB_CONFIG_FILE: /app/etc/tmdb.yaml
