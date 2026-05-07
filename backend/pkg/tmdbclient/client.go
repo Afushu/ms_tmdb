@@ -17,6 +17,27 @@ import (
 
 const defaultHTTPTimeout = 15 * time.Second
 
+// APIError 表示 TMDB 上游返回的非 200 响应，保留状态码便于上层按场景映射提示。
+type APIError struct {
+	StatusCode int
+	Body       string
+}
+
+func (e *APIError) Error() string {
+	return fmt.Sprintf("TMDB 返回错误状态码 %d: %s", e.StatusCode, e.Body)
+}
+
+// StatusMessage 读取 TMDB 错误响应中的 status_message，body 非 JSON 时返回空字符串。
+func (e *APIError) StatusMessage() string {
+	var payload struct {
+		StatusMessage string `json:"status_message"`
+	}
+	if err := json.Unmarshal([]byte(e.Body), &payload); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(payload.StatusMessage)
+}
+
 // Client TMDB API 客户端
 type Client struct {
 	apiKey     string
@@ -162,7 +183,10 @@ func (c *Client) Get(path string, opts *RequestOption) (json.RawMessage, error) 
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("TMDB 返回错误状态码 %d: %s", resp.StatusCode, string(body))
+		return nil, &APIError{
+			StatusCode: resp.StatusCode,
+			Body:       string(body),
+		}
 	}
 
 	return json.RawMessage(body), nil

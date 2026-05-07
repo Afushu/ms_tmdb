@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -38,7 +40,7 @@ func (m *TmdbProxyMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 		data, err := m.dispatcher.dispatch(tmdbPath, parseRequestOptions(r), r)
 		if err != nil {
 			logx.Errorf("TMDB 代理请求失败: %s, 错误: %v", tmdbPath, err)
-			writeProxyError(w, http.StatusBadGateway)
+			writeProxyError(w, proxyErrorStatus(err), proxyErrorMessage(err))
 			return
 		}
 
@@ -53,4 +55,33 @@ func resolveTmdbPath(path string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func proxyErrorStatus(err error) int {
+	var apiErr *tmdbclient.APIError
+	if errors.As(err, &apiErr) {
+		return normalizeHTTPStatus(apiErr.StatusCode)
+	}
+	return http.StatusBadGateway
+}
+
+func proxyErrorMessage(err error) string {
+	var apiErr *tmdbclient.APIError
+	if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusTooManyRequests {
+		return "TMDB 请求触发限流，请稍后重试"
+	}
+	if errors.As(err, &apiErr) {
+		if message := apiErr.StatusMessage(); message != "" {
+			return message
+		}
+		return fmt.Sprintf("TMDB 返回错误状态码 %d", apiErr.StatusCode)
+	}
+	return "TMDB 代理请求失败，请稍后重试"
+}
+
+func normalizeHTTPStatus(code int) int {
+	if code < 100 || code > 599 {
+		return http.StatusBadGateway
+	}
+	return code
 }

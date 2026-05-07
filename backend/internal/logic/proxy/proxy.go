@@ -109,7 +109,7 @@ func (s *ProxyService) getMovieDetail(tmdbID int, opts *tmdbclient.RequestOption
 
 	data, fetchErr := s.TmdbClient.GetMovie(syncTmdbID, opts)
 	if fetchErr != nil {
-		if err == nil {
+		if shouldUseFallbackCache(fetchErr) && err == nil {
 			logx.Infof("TMDB 不可用，返回本地缓存: movie/%d", tmdbID)
 			return rewriteTMDBID(json.RawMessage(movie.TmdbData), tmdbID, syncTmdbID)
 		}
@@ -167,7 +167,7 @@ func (s *ProxyService) getTvSeriesDetail(tmdbID int, opts *tmdbclient.RequestOpt
 
 	data, fetchErr := s.TmdbClient.GetTVSeries(syncTmdbID, opts)
 	if fetchErr != nil {
-		if err == nil {
+		if shouldUseFallbackCache(fetchErr) && err == nil {
 			normalizedData, rewriteErr := rewriteTMDBID(json.RawMessage(tv.TmdbData), tmdbID, syncTmdbID)
 			if rewriteErr != nil {
 				return nil, rewriteErr
@@ -357,7 +357,7 @@ func (s *ProxyService) getPersonDetail(tmdbID int, opts *tmdbclient.RequestOptio
 
 	data, fetchErr := s.TmdbClient.GetPerson(tmdbID, opts)
 	if fetchErr != nil {
-		if err == nil {
+		if shouldUseFallbackCache(fetchErr) && err == nil {
 			return json.RawMessage(person.TmdbData), nil
 		}
 		return nil, fetchErr
@@ -598,14 +598,14 @@ func (s *ProxyService) getMovieDetailByLanguage(tmdbID int, opts *tmdbclient.Req
 
 	data, fetchErr := s.TmdbClient.GetMovie(syncTmdbID, opts)
 	if fetchErr != nil {
-		if snapshotErr == nil {
+		if shouldUseFallbackCache(fetchErr) && snapshotErr == nil {
 			cachedData, err := rewriteTMDBID(json.RawMessage(snapshot.TmdbData), tmdbID, resolveSyncTmdbID(snapshot.SyncTmdbID, syncTmdbID))
 			if err != nil {
 				return nil, err
 			}
 			return mergeTMDBWithLocalData(cachedData, localData)
 		}
-		if movieErr == nil {
+		if shouldUseFallbackCache(fetchErr) && movieErr == nil {
 			logx.Infof("TMDB 不可用，返回本地默认语言缓存: movie/%d language=%s", tmdbID, normalizedLanguage)
 			return rewriteTMDBID(json.RawMessage(movie.TmdbData), tmdbID, syncTmdbID)
 		}
@@ -661,14 +661,14 @@ func (s *ProxyService) getTVSeriesDetailByLanguage(tmdbID int, opts *tmdbclient.
 
 	data, fetchErr := s.TmdbClient.GetTVSeries(syncTmdbID, opts)
 	if fetchErr != nil {
-		if snapshotErr == nil {
+		if shouldUseFallbackCache(fetchErr) && snapshotErr == nil {
 			cachedData, err := rewriteTMDBID(json.RawMessage(snapshot.TmdbData), tmdbID, resolveSyncTmdbID(snapshot.SyncTmdbID, syncTmdbID))
 			if err != nil {
 				return nil, err
 			}
 			return mergeTVSeriesWithLocalData(cachedData, localData)
 		}
-		if tvErr == nil {
+		if shouldUseFallbackCache(fetchErr) && tvErr == nil {
 			logx.Infof("TMDB 不可用，返回本地默认语言缓存: tv/%d language=%s", tmdbID, normalizedLanguage)
 			cachedData, err := rewriteTMDBID(json.RawMessage(tv.TmdbData), tmdbID, syncTmdbID)
 			if err != nil {
@@ -718,10 +718,10 @@ func (s *ProxyService) getPersonDetailByLanguage(tmdbID int, opts *tmdbclient.Re
 
 	data, fetchErr := s.TmdbClient.GetPerson(tmdbID, opts)
 	if fetchErr != nil {
-		if snapshotErr == nil {
+		if shouldUseFallbackCache(fetchErr) && snapshotErr == nil {
 			return mergeTMDBWithLocalData(json.RawMessage(snapshot.TmdbData), localData)
 		}
-		if personErr == nil {
+		if shouldUseFallbackCache(fetchErr) && personErr == nil {
 			logx.Infof("TMDB 不可用，返回本地默认语言缓存: person/%d language=%s", tmdbID, normalizedLanguage)
 			return mergeTMDBWithLocalData(json.RawMessage(person.TmdbData), localData)
 		}
@@ -920,6 +920,11 @@ func isExpired(syncedAt *time.Time, ttl time.Duration) bool {
 		return true
 	}
 	return time.Since(*syncedAt) > ttl
+}
+
+func shouldUseFallbackCache(fetchErr error) bool {
+	var apiErr *tmdbclient.APIError
+	return !errors.As(fetchErr, &apiErr)
 }
 
 func (s *ProxyService) ensureTVSeriesExists(seriesID int, opts *tmdbclient.RequestOption) error {
