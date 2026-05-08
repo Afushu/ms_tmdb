@@ -26,8 +26,10 @@ func NewGetProxySettingsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 func (l *GetProxySettingsLogic) GetProxySettings() (*types.AdminProxyResp, error) {
 	current := l.svcCtx.TmdbClient.GetProxy()
 	return &types.AdminProxyResp{
-		ProxyURL:          current,
-		Enabled:           current != "",
-		LocalWriteEnabled: l.svcCtx.ProxyService.LocalWriteEnabled(),
+		ProxyURL:               current,
+		Enabled:                current != "",
+		LocalWriteEnabled:      l.svcCtx.ProxyService.LocalWriteEnabled(),
+		Timeout:                l.svcCtx.Config.Timeout,
+		TimeoutRestartRequired: timeoutRestartRequired(l.svcCtx),
 	}, nil
 }

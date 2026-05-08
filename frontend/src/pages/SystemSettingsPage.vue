@@ -26,6 +26,8 @@ const proxyMessage = ref("");
 const proxyEnabled = ref(false);
 const proxyURL = ref("");
 const proxyLocalWriteEnabled = ref(true);
+const proxyTimeout = ref(30000);
+const proxyTimeoutRestartRequired = ref(false);
 
 const syncSaving = ref(false);
 const syncError = ref("");
@@ -81,6 +83,9 @@ const settingsBusy = computed(
 );
 const proxyStatusText = computed(() => (proxyEnabled.value ? "已启用" : "直连"));
 const proxyLocalWriteStatusText = computed(() => (proxyLocalWriteEnabled.value ? "自动写入本地" : "仅读已有本地"));
+const proxyTimeoutStatusText = computed(() =>
+  proxyTimeoutRestartRequired.value ? "超时配置待重启生效" : `请求超时 ${formatDuration(proxyTimeout.value)}`,
+);
 const syncStatusText = computed(() => (syncEnabled.value ? "已启用" : "已关闭"));
 const taskRunStatusText = computed(() => (syncRunning.value ? "执行中" : "空闲"));
 const latestLog = computed(() => logsItems.value[0] ?? null);
@@ -98,6 +103,10 @@ function normalizeNumber(value: number, min: number, max: number) {
   if (next < min) return min;
   if (next > max) return max;
   return next;
+}
+
+function normalizeTimeout(value: number) {
+  return normalizeNumber(Number(value), 1000, 300000);
 }
 
 function formatMode(mode: string) {
@@ -381,6 +390,8 @@ async function loadSettings() {
     proxyEnabled.value = !!proxyData.enabled;
     proxyURL.value = proxyData.proxy_url ?? "";
     proxyLocalWriteEnabled.value = proxyData.local_write_enabled !== false;
+    proxyTimeout.value = normalizeTimeout(Number(proxyData.timeout) || 30000);
+    proxyTimeoutRestartRequired.value = !!proxyData.timeout_restart_required;
 
     const syncData = autoSyncResp.data;
     syncEnabled.value = !!syncData.enabled;
@@ -407,12 +418,19 @@ async function saveProxySettings() {
     const resp = await updateProxySettings({
       proxy_url: nextProxyURL,
       local_write_enabled: proxyLocalWriteEnabled.value,
+      timeout: normalizeTimeout(proxyTimeout.value),
     });
     const data = resp.data;
     proxyURL.value = data.proxy_url ?? "";
     proxyEnabled.value = !!data.enabled;
     proxyLocalWriteEnabled.value = data.local_write_enabled !== false;
-    proxyMessage.value = proxyEnabled.value ? "代理配置已保存" : "代理已关闭，当前为直连";
+    proxyTimeout.value = normalizeTimeout(Number(data.timeout) || proxyTimeout.value);
+    proxyTimeoutRestartRequired.value = !!data.timeout_restart_required;
+    proxyMessage.value = proxyTimeoutRestartRequired.value
+      ? "网络配置已保存，请重启后端使请求超时生效"
+      : proxyEnabled.value
+        ? "代理配置已保存"
+        : "代理已关闭，当前为直连";
   } catch (err: unknown) {
     proxyError.value = resolveErrorMessage(err, "保存代理设置失败");
   } finally {
@@ -495,7 +513,8 @@ onMounted(reloadAll);
         <span class="settings-summary-label">代理访问</span>
         <strong>{{ proxyStatusText }}</strong>
         <p>
-          {{ proxyEnabled ? proxyURL || "已启用，等待代理地址" : "后端直连 TMDB" }} · {{ proxyLocalWriteStatusText }}
+          {{ proxyEnabled ? proxyURL || "已启用，等待代理地址" : "后端直连 TMDB" }} · {{ proxyLocalWriteStatusText }} ·
+          {{ proxyTimeoutStatusText }}
         </p>
       </article>
       <article class="settings-summary-card">
@@ -558,6 +577,23 @@ onMounted(reloadAll);
           />
         </label>
         <p class="settings-help-text">支持格式示例：http://127.0.0.1:7890、socks5://127.0.0.1:1080</p>
+
+        <label class="settings-field-label">
+          请求超时（毫秒）
+          <input
+            v-model.number="proxyTimeout"
+            type="number"
+            min="1000"
+            max="300000"
+            step="1000"
+            class="field-control mt-1 w-full text-sm"
+            :disabled="proxySaving"
+          />
+          <span>可设置 1000-300000 毫秒；保存会写入配置文件，重启后真正生效。</span>
+        </label>
+        <p v-if="proxyTimeoutRestartRequired" class="settings-feedback settings-feedback-warning">
+          当前请求超时配置已变更，重启后端后生效。
+        </p>
 
         <div class="settings-card-actions">
           <button class="btn-primary disabled:opacity-60" :disabled="proxySaving" @click="saveProxySettings">

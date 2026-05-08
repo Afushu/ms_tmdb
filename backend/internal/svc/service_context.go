@@ -14,11 +14,12 @@ import (
 )
 
 type ServiceContext struct {
-	Config       config.Config
-	DB           *gorm.DB
-	TmdbClient   *tmdbclient.Client
-	ProxyService *proxy.ProxyService
-	LogService   *service.RequestLogService
+	Config         config.Config
+	StartupTimeout int64
+	DB             *gorm.DB
+	TmdbClient     *tmdbclient.Client
+	ProxyService   *proxy.ProxyService
+	LogService     *service.RequestLogService
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -69,10 +70,11 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	})
 
 	return &ServiceContext{
-		Config:       c,
-		DB:           db,
-		TmdbClient:   client,
-		ProxyService: proxy.NewProxyService(db, client, c.Tmdb.DefaultLanguage, c.Tmdb.LocalWriteEnabled),
-		LogService:   logService,
+		Config:         c,
+		StartupTimeout: c.Timeout,
+		DB:             db,
+		TmdbClient:     client,
+		ProxyService:   proxy.NewProxyService(db, client, c.Tmdb.DefaultLanguage, c.Tmdb.LocalWriteEnabled),
+		LogService:     logService,
 	}
 }

@@ -1,6 +1,8 @@
 Name: ms-tmdb-api
 Host: 0.0.0.0
 Port: 8888
+# 请求处理超时时间（毫秒），默认 30 秒
+Timeout: 30000
 # 允许保存较大的季明细 payload（默认 1MB）
 MaxBytes: 8388608
 

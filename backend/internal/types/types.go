@@ -227,14 +227,17 @@ type AdminProxyAccessLogListResp struct {
 }
 
 type AdminProxyReq struct {
-	ProxyURL          string `json:"proxy_url,optional"`
-	LocalWriteEnabled *bool  `json:"local_write_enabled,optional"`
+	ProxyURL          *string `json:"proxy_url,optional"`
+	LocalWriteEnabled *bool   `json:"local_write_enabled,optional"`
+	Timeout           *int64  `json:"timeout,optional"`
 }
 
 type AdminProxyResp struct {
-	ProxyURL          string `json:"proxy_url"`
-	Enabled           bool   `json:"enabled"`
-	LocalWriteEnabled bool   `json:"local_write_enabled"`
+	ProxyURL               string `json:"proxy_url"`
+	Enabled                bool   `json:"enabled"`
+	LocalWriteEnabled      bool   `json:"local_write_enabled"`
+	Timeout                int64  `json:"timeout"`
+	TimeoutRestartRequired bool   `json:"timeout_restart_required"`
 }
 
 type AdminRequestLogClearResp struct {

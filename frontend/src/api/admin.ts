@@ -21,11 +21,14 @@ export type AdminProxyResp = {
   proxy_url: string;
   enabled: boolean;
   local_write_enabled: boolean;
+  timeout: number;
+  timeout_restart_required: boolean;
 };
 
 export type AdminProxyPayload = {
   proxy_url?: string;
   local_write_enabled?: boolean;
+  timeout?: number;
 };
 
 export type AdminAutoSyncMode = "overwrite_all" | "update_unmodified";

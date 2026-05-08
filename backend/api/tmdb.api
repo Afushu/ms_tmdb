@@ -168,14 +168,17 @@ type (
 	}
 	// 管理接口 - 代理设置请求
 	AdminProxyReq {
-		ProxyURL          string `json:"proxy_url,optional"`
-		LocalWriteEnabled *bool  `json:"local_write_enabled,optional"`
+		ProxyURL          *string `json:"proxy_url,optional"`
+		LocalWriteEnabled *bool   `json:"local_write_enabled,optional"`
+		Timeout           *int64  `json:"timeout,optional"`
 	}
 	// 管理接口 - 代理设置响应
 	AdminProxyResp {
-		ProxyURL          string `json:"proxy_url"`
-		Enabled           bool   `json:"enabled"`
-		LocalWriteEnabled bool   `json:"local_write_enabled"`
+		ProxyURL               string `json:"proxy_url"`
+		Enabled                bool   `json:"enabled"`
+		LocalWriteEnabled      bool   `json:"local_write_enabled"`
+		Timeout                int64  `json:"timeout"`
+		TimeoutRestartRequired bool   `json:"timeout_restart_required"`
 	}
 	// 管理接口 - 自动同步设置请求
 	AdminAutoSyncReq {
