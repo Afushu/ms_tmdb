@@ -217,6 +217,11 @@ export function useTVDetailPage() {
   });
 
   function goBack() {
+    const historyState = window.history.state as { back?: string } | null;
+    if (historyState?.back) {
+      router.back();
+      return;
+    }
     void router.push({
       path: "/library",
       query: { tab: "tv" },

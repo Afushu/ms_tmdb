@@ -1,16 +1,30 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch } from "vue";
+import { useRoute, useRouter, type LocationQueryRaw } from "vue-router";
 import GlassSelect from "@/components/GlassSelect.vue";
 import { searchByType, type SearchType } from "@/api/search";
 import SearchResultList from "@/components/SearchResultList.vue";
 import type { ApiErrorLike, SearchResultItem } from "@/types/media";
 
-const query = ref("");
-const type = ref<SearchType>("multi");
+const route = useRoute();
+const router = useRouter();
+const query = ref(readQueryString(route.query.q));
+const type = ref<SearchType>(normalizeSearchType(route.query.type));
 const loading = ref(false);
 const error = ref("");
 const results = ref<SearchResultItem[]>([]);
 let searchReqSeq = 0;
+
+function readQueryString(value: unknown): string {
+  if (Array.isArray(value)) return String(value[0] ?? "").trim();
+  return String(value ?? "").trim();
+}
+
+function normalizeSearchType(value: unknown): SearchType {
+  const text = readQueryString(value);
+  if (text === "movie" || text === "tv" || text === "person") return text;
+  return "multi";
+}
 
 function resolveErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === "object" && "message" in err) {
@@ -27,10 +41,26 @@ const typeOptions = [
   { label: "人物", value: "person" },
 ] as const;
 
-async function handleSearch() {
-  const trimmedQuery = query.value.trim();
-  const targetType = type.value;
-  if (!trimmedQuery) {
+function buildSearchQuery(targetType: SearchType, targetQuery: string): LocationQueryRaw {
+  const nextQuery: LocationQueryRaw = { q: targetQuery };
+  if (targetType !== "multi") nextQuery.type = targetType;
+  return nextQuery;
+}
+
+function queryValue(value: unknown): string {
+  return Array.isArray(value) ? String(value[0] ?? "") : String(value ?? "");
+}
+
+function isSameSearchQuery(nextQuery: LocationQueryRaw): boolean {
+  const keys = new Set([...Object.keys(route.query), ...Object.keys(nextQuery)]);
+  for (const key of keys) {
+    if (queryValue(route.query[key]) !== queryValue(nextQuery[key])) return false;
+  }
+  return true;
+}
+
+async function runSearch(targetType: SearchType, targetQuery: string) {
+  if (!targetQuery) {
     searchReqSeq++;
     error.value = "请输入关键词";
     results.value = [];
@@ -41,7 +71,7 @@ async function handleSearch() {
   loading.value = true;
   error.value = "";
   try {
-    const resp = await searchByType(targetType, trimmedQuery, 1);
+    const resp = await searchByType(targetType, targetQuery, 1);
     if (requestSeq !== searchReqSeq) {
       return;
     }
@@ -56,6 +86,44 @@ async function handleSearch() {
     }
   }
 }
+
+async function handleSearch() {
+  const trimmedQuery = query.value.trim();
+  const targetType = type.value;
+  if (!trimmedQuery) {
+    searchReqSeq++;
+    error.value = "请输入关键词";
+    results.value = [];
+    loading.value = false;
+    return;
+  }
+
+  const nextQuery = buildSearchQuery(targetType, trimmedQuery);
+  if (!isSameSearchQuery(nextQuery)) {
+    await router.replace({ path: "/search", query: nextQuery });
+    return;
+  }
+  await runSearch(targetType, trimmedQuery);
+}
+
+watch(
+  () => route.query,
+  (routeQuery) => {
+    const nextQuery = readQueryString(routeQuery.q);
+    const nextType = normalizeSearchType(routeQuery.type);
+    query.value = nextQuery;
+    type.value = nextType;
+    if (!nextQuery) {
+      searchReqSeq++;
+      results.value = [];
+      error.value = "";
+      loading.value = false;
+      return;
+    }
+    void runSearch(nextType, nextQuery);
+  },
+  { immediate: true },
+);
 </script>
 
 <template>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute, useRouter, type LocationQueryRaw } from "vue-router";
 import GlassSelect from "@/components/GlassSelect.vue";
 import ModalShell from "@/components/common/ModalShell.vue";
 import LocalMediaCreateForm from "@/components/library/LocalMediaCreateForm.vue";
@@ -34,16 +34,16 @@ type LibraryListItem = AdminMovieListItem | AdminTVListItem;
 
 const route = useRoute();
 const router = useRouter();
-const activeTab = ref<MediaTab>(route.query.tab === "tv" ? "tv" : "movie");
-const viewMode = ref<ViewMode>("grid");
-const searchMode = ref<SearchMode>("contains");
-const keywordInput = ref("");
-const keyword = ref("");
+const activeTab = ref<MediaTab>(normalizeTab(route.query.tab));
+const viewMode = ref<ViewMode>(normalizeViewMode(route.query.view));
+const searchMode = ref<SearchMode>(normalizeSearchMode(route.query.mode));
+const keywordInput = ref(readQueryString(route.query.q));
+const keyword = ref(readQueryString(route.query.q));
 const loading = ref(false);
 const error = ref("");
 const items = ref<LibraryListItem[]>([]);
 const total = ref(0);
-const page = ref(1);
+const page = ref(normalizePage(route.query.page));
 const pageSize = 20;
 
 const createPanelVisible = ref(false);
@@ -73,6 +73,56 @@ const searchModeOptions = [
 const createTitle = computed(() => (activeTab.value === "movie" ? "新建本地电影" : "新建本地剧集"));
 let previousBodyOverflow = "";
 let loadReqSeq = 0;
+
+function readQueryString(value: unknown): string {
+  if (Array.isArray(value)) return String(value[0] ?? "").trim();
+  return String(value ?? "").trim();
+}
+
+function normalizeTab(value: unknown): MediaTab {
+  return readQueryString(value) === "tv" ? "tv" : "movie";
+}
+
+function normalizeViewMode(value: unknown): ViewMode {
+  return readQueryString(value) === "table" ? "table" : "grid";
+}
+
+function normalizeSearchMode(value: unknown): SearchMode {
+  return readQueryString(value) === "prefix" ? "prefix" : "contains";
+}
+
+function normalizePage(value: unknown): number {
+  const parsed = Number(readQueryString(value));
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+}
+
+function buildLibraryQuery(): LocationQueryRaw {
+  const nextQuery: LocationQueryRaw = {};
+  if (activeTab.value !== "movie") nextQuery.tab = activeTab.value;
+  if (page.value > 1) nextQuery.page = String(page.value);
+  if (keyword.value) nextQuery.q = keyword.value;
+  if (searchMode.value !== "contains") nextQuery.mode = searchMode.value;
+  if (viewMode.value !== "grid") nextQuery.view = viewMode.value;
+  return nextQuery;
+}
+
+function queryValue(value: unknown): string {
+  return Array.isArray(value) ? String(value[0] ?? "") : String(value ?? "");
+}
+
+function isSameLibraryQuery(nextQuery: LocationQueryRaw): boolean {
+  const keys = new Set([...Object.keys(route.query), ...Object.keys(nextQuery)]);
+  for (const key of keys) {
+    if (queryValue(route.query[key]) !== queryValue(nextQuery[key])) return false;
+  }
+  return true;
+}
+
+function syncLibraryQuery() {
+  const nextQuery = buildLibraryQuery();
+  if (isSameLibraryQuery(nextQuery)) return;
+  void router.replace({ path: "/library", query: nextQuery });
+}
 
 function resolveErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === "object" && "message" in err) {
@@ -207,6 +257,7 @@ async function loadData() {
 }
 
 function switchTab(tab: MediaTab) {
+  if (tab === activeTab.value) return;
   activeTab.value = tab;
   page.value = 1;
 }
@@ -507,9 +558,9 @@ async function confirmDeleteItem() {
 }
 
 watch(
-  () => route.query.tab,
-  (tab) => {
-    const nextTab: MediaTab = tab === "tv" ? "tv" : "movie";
+  () => route.query,
+  (query) => {
+    const nextTab = normalizeTab(query.tab);
     if (nextTab !== activeTab.value) {
       activeTab.value = nextTab;
       page.value = 1;
@@ -520,6 +571,27 @@ watch(
       } else {
         void loadTVGenreOptions();
       }
+    }
+
+    const nextPage = normalizePage(query.page);
+    if (nextPage !== page.value) {
+      page.value = nextPage;
+    }
+
+    const nextKeyword = readQueryString(query.q);
+    if (nextKeyword !== keyword.value) {
+      keyword.value = nextKeyword;
+      keywordInput.value = nextKeyword;
+    }
+
+    const nextSearchMode = normalizeSearchMode(query.mode);
+    if (nextSearchMode !== searchMode.value) {
+      searchMode.value = nextSearchMode;
+    }
+
+    const nextViewMode = normalizeViewMode(query.view);
+    if (nextViewMode !== viewMode.value) {
+      viewMode.value = nextViewMode;
     }
   },
 );
@@ -545,6 +617,7 @@ onBeforeUnmount(() => {
 });
 
 watch([activeTab, page, keyword, searchMode], loadData);
+watch([activeTab, page, keyword, searchMode, viewMode], syncLibraryQuery);
 onMounted(loadData);
 </script>
 

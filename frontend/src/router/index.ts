@@ -2,6 +2,9 @@ import { createRouter, createWebHistory } from "vue-router";
 
 const router = createRouter({
   history: createWebHistory(),
+  scrollBehavior(_to, _from, savedPosition) {
+    return savedPosition ?? { top: 0 };
+  },
   routes: [
     { path: "/", component: () => import("@/pages/HomePage.vue") },
     { path: "/search", component: () => import("@/pages/SearchPage.vue") },
