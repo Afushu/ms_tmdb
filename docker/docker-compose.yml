@@ -9,6 +9,6 @@ services:
     ports:
       - "8080:80"
     volumes:
-      - ./tmdb.yaml:/app/etc/tmdb.yaml:ro
+      - ./tmdb.yaml:/app/etc/tmdb.yaml
       #- ./uploads:/app/uploads:rw # 需要上传封面的可以打开
     restart: unless-stopped
