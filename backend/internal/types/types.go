@@ -309,9 +309,10 @@ type AdminTmdbRequestLogListResp struct {
 }
 
 type AdminTvSeasonLocalReq struct {
-	Id           int    `path:"id"`
-	SeasonNumber int    `path:"season_number"`
-	Language     string `form:"language,optional"`
+	Id               int    `path:"id"`
+	SeasonNumber     int    `path:"season_number"`
+	Language         string `form:"language,optional"`
+	AppendToResponse string `form:"append_to_response,optional"`
 }
 
 type AdminTvSeasonLocalResp struct {

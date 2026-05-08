@@ -134,9 +134,10 @@ type (
 	}
 	// 管理接口 - 本地季详情路径请求
 	AdminTvSeasonLocalReq {
-		Id           int    `path:"id"`
-		SeasonNumber int    `path:"season_number"`
-		Language     string `form:"language,optional"`
+		Id               int    `path:"id"`
+		SeasonNumber     int    `path:"season_number"`
+		Language         string `form:"language,optional"`
+		AppendToResponse string `form:"append_to_response,optional"`
 	}
 	// 管理接口 - 本地季详情更新请求
 	AdminTvSeasonLocalUpdateReq {
