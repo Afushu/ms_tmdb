@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/zeromicro/go-zero/core/logx"
 	"gorm.io/gorm"
 )
 
@@ -248,6 +249,35 @@ func EnsureQueryIndexes(db *gorm.DB) error {
 	}
 
 	for _, stmt := range statements {
+		if err := db.Exec(stmt).Error; err != nil {
+			return err
+		}
+	}
+
+	// 日志列表关键词为 col ILIKE '%x%' OR ...，需 pg_trgm GIN 索引才能避免 10 万级以上全表扫描与超时。
+	if err := db.Exec("CREATE EXTENSION IF NOT EXISTS pg_trgm").Error; err != nil {
+		logx.Infof("无法启用 pg_trgm（缺权限时可忽略），日志关键词查询可能较慢: %v", err)
+		return nil
+	}
+
+	trgmIndexes := []string{
+		"CREATE INDEX IF NOT EXISTS idx_movies_title_trgm ON movies USING gin (title gin_trgm_ops)",
+		"CREATE INDEX IF NOT EXISTS idx_movies_original_title_trgm ON movies USING gin (original_title gin_trgm_ops)",
+		"CREATE INDEX IF NOT EXISTS idx_tv_series_name_trgm ON tv_series USING gin (name gin_trgm_ops)",
+		"CREATE INDEX IF NOT EXISTS idx_tv_series_original_name_trgm ON tv_series USING gin (original_name gin_trgm_ops)",
+		"CREATE INDEX IF NOT EXISTS idx_proxy_access_logs_method_trgm ON proxy_access_logs USING gin (method gin_trgm_ops)",
+		"CREATE INDEX IF NOT EXISTS idx_proxy_access_logs_path_trgm ON proxy_access_logs USING gin (path gin_trgm_ops)",
+		"CREATE INDEX IF NOT EXISTS idx_proxy_access_logs_query_trgm ON proxy_access_logs USING gin (query gin_trgm_ops)",
+		"CREATE INDEX IF NOT EXISTS idx_proxy_access_logs_request_uri_trgm ON proxy_access_logs USING gin (request_uri gin_trgm_ops)",
+		"CREATE INDEX IF NOT EXISTS idx_proxy_access_logs_client_ip_trgm ON proxy_access_logs USING gin (client_ip gin_trgm_ops)",
+		"CREATE INDEX IF NOT EXISTS idx_proxy_access_logs_user_agent_trgm ON proxy_access_logs USING gin (user_agent gin_trgm_ops)",
+		"CREATE INDEX IF NOT EXISTS idx_proxy_access_logs_err_trgm ON proxy_access_logs USING gin (error_message gin_trgm_ops)",
+		"CREATE INDEX IF NOT EXISTS idx_tmdb_request_logs_method_trgm ON tmdb_request_logs USING gin (method gin_trgm_ops)",
+		"CREATE INDEX IF NOT EXISTS idx_tmdb_request_logs_path_trgm ON tmdb_request_logs USING gin (path gin_trgm_ops)",
+		"CREATE INDEX IF NOT EXISTS idx_tmdb_request_logs_url_trgm ON tmdb_request_logs USING gin (url gin_trgm_ops)",
+		"CREATE INDEX IF NOT EXISTS idx_tmdb_request_logs_err_trgm ON tmdb_request_logs USING gin (error_message gin_trgm_ops)",
+	}
+	for _, stmt := range trgmIndexes {
 		if err := db.Exec(stmt).Error; err != nil {
 			return err
 		}

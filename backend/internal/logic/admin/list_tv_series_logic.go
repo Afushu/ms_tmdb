@@ -42,7 +42,7 @@ func (l *ListTvSeriesLogic) ListTvSeries(req *types.LibraryListReq) (*types.TvSe
 	}
 
 	var items []model.TVSeries
-	if err := query.Select("id, tmdb_id, name, original_name, poster_path, backdrop_path, vote_average, first_air_date, number_of_seasons, number_of_episodes, popularity, is_modified, tmdb_data, local_data, last_synced_at, created_at").
+	if err := query.Select(tvSeriesListSelect).
 		Order("popularity DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).
 		Find(&items).Error; err != nil {
