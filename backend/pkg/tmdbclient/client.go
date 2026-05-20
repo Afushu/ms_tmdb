@@ -1,6 +1,8 @@
 package tmdbclient
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -68,7 +70,8 @@ func NewClient(apiKey, baseURL, defaultLanguage string, rateLimit int, proxyURL 
 		baseURL:  baseURL,
 		language: defaultLanguage,
 		httpClient: &http.Client{
-			Timeout: defaultHTTPTimeout,
+			Timeout:   defaultHTTPTimeout,
+			Transport: newTransport(""),
 		},
 		rateLimiter: make(chan struct{}, rateLimit),
 	}
@@ -107,9 +110,7 @@ func (c *Client) GetProxy() string {
 // SetProxy 设置 TMDB 请求代理地址，空字符串表示关闭自定义代理
 func (c *Client) SetProxy(proxyURL string) error {
 	trimmed := strings.TrimSpace(proxyURL)
-	transport := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-	}
+	transport := newTransport("")
 
 	if trimmed != "" {
 		parsed, err := url.Parse(trimmed)
@@ -119,7 +120,7 @@ func (c *Client) SetProxy(proxyURL string) error {
 		if parsed.Scheme == "" || parsed.Host == "" {
 			return errors.New("代理地址必须包含协议和主机，例如 http://127.0.0.1:7890")
 		}
-		transport.Proxy = http.ProxyURL(parsed)
+		transport = newTransport(trimmed)
 	}
 
 	httpClient := &http.Client{
@@ -132,6 +133,25 @@ func (c *Client) SetProxy(proxyURL string) error {
 	c.httpClient = httpClient
 	c.proxyURL = trimmed
 	return nil
+}
+
+func newTransport(proxyURL string) *http.Transport {
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		// TMDB 的部分 gzip 响应在 Go 自动解压时会返回 unexpected EOF，
+		// 这里禁用自动解压，统一由 readResponseBody 按响应头处理。
+		DisableCompression: true,
+	}
+	if proxyURL == "" {
+		return transport
+	}
+
+	parsed, err := url.Parse(proxyURL)
+	if err != nil {
+		return transport
+	}
+	transport.Proxy = http.ProxyURL(parsed)
+	return transport
 }
 
 // RequestOption 请求选项
@@ -222,7 +242,7 @@ func (c *Client) Get(path string, opts *RequestOption) (json.RawMessage, error) 
 	defer resp.Body.Close()
 	logEntry.StatusCode = resp.StatusCode
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := readResponseBody(resp)
 	logEntry.ResponseBody = body
 	if err != nil {
 		logEntry.ErrorMessage = err.Error()
@@ -239,6 +259,52 @@ func (c *Client) Get(path string, opts *RequestOption) (json.RawMessage, error) 
 	}
 
 	return json.RawMessage(body), nil
+}
+
+func readResponseBody(resp *http.Response) ([]byte, error) {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return body, err
+	}
+	if !isGzipEncoding(resp.Header.Get("Content-Encoding")) {
+		return body, nil
+	}
+
+	decoded, err := readGzipBody(body)
+	// 部分 TMDB/CloudFront gzip 响应只缺少尾部校验信息，解出的 JSON 仍完整。
+	if errors.Is(err, io.ErrUnexpectedEOF) && json.Valid(decoded) {
+		return decoded, nil
+	}
+	if err != nil {
+		return decoded, err
+	}
+	return decoded, nil
+}
+
+func readGzipBody(body []byte) ([]byte, error) {
+	reader, err := gzip.NewReader(bytes.NewReader(body))
+	if err != nil {
+		return body, err
+	}
+
+	decoded, readErr := io.ReadAll(reader)
+	closeErr := reader.Close()
+	if readErr != nil {
+		return decoded, readErr
+	}
+	if closeErr != nil {
+		return decoded, closeErr
+	}
+	return decoded, nil
+}
+
+func isGzipEncoding(encoding string) bool {
+	for _, item := range strings.Split(encoding, ",") {
+		if strings.EqualFold(strings.TrimSpace(item), "gzip") {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Client) writeRequestLog(ctx context.Context, entry RequestLogEntry) {
