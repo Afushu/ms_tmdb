@@ -152,7 +152,15 @@ func (l *UpdateMovieLogic) UpdateMovie(req *types.AdminUpdateReq) error {
 		hasFieldUpdate = true
 	}
 	if req.GenreNames != nil {
-		genres := buildGenresFromNames(req.GenreNames)
+		// 从原始 tmdb_data 中提取 genres 以保留原始 id
+		var originalGenres []interface{}
+		if len(movie.TmdbData) > 0 {
+			tmdbPayload, _ := rawJSONToMap(movie.TmdbData)
+			if g, ok := tmdbPayload["genres"].([]interface{}); ok {
+				originalGenres = g
+			}
+		}
+		genres := buildGenresFromNames(req.GenreNames, originalGenres)
 		patch["genres"] = genres
 		hasFieldUpdate = true
 	}

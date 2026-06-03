@@ -140,11 +140,25 @@ func trimPtrString(v *string) string {
 	return strings.TrimSpace(*v)
 }
 
-// buildGenresFromNames 把类型名转换为详情页可渲染结构
-func buildGenresFromNames(names []string) []map[string]interface{} {
+// buildGenresFromNames 把类型名转换为详情页可渲染结构，优先保留原始 TMDB id
+func buildGenresFromNames(names []string, originalGenres []interface{}) []map[string]interface{} {
+	// 构建原始类型的名称到 id 的映射
+	originalGenreMap := make(map[string]int)
+	for _, item := range originalGenres {
+		entry, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name := strings.ToLower(strings.TrimSpace(mapString(entry, "name")))
+		id := mapInt(entry, "id")
+		if name != "" && id > 0 {
+			originalGenreMap[name] = id
+		}
+	}
+
 	result := make([]map[string]interface{}, 0, len(names))
 	seen := make(map[string]struct{}, len(names))
-	id := 1
+	nextLocalID := 1
 	for _, raw := range names {
 		name := strings.TrimSpace(raw)
 		if name == "" {
@@ -155,11 +169,21 @@ func buildGenresFromNames(names []string) []map[string]interface{} {
 			continue
 		}
 		seen[key] = struct{}{}
+
+		// 优先使用原始 TMDB id
+		id := nextLocalID
+		if originalID, ok := originalGenreMap[key]; ok {
+			id = originalID
+		} else {
+			// 本地新增的类型使用负数 id 来区分
+			id = -nextLocalID
+			nextLocalID++
+		}
+
 		result = append(result, map[string]interface{}{
 			"id":   id,
 			"name": name,
 		})
-		id++
 	}
 	return result
 }
