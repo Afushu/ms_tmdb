@@ -141,6 +141,86 @@ volumes:
   postgres_data:
 ```
 
+## 发布 Docker 镜像
+
+### 使用一键发布脚本（推荐）
+
+```bash
+cd /workspace
+
+# 查看帮助
+./publish-image.sh --help
+
+# 单架构镜像发布到 Docker Hub
+./publish-image.sh -u your-dockerhub-username --push
+
+# 多架构镜像（amd64 + arm64）
+./publish-image.sh -u your-dockerhub-username -t v1.0.0 --multi-arch --push
+
+# 发布到私有仓库
+./publish-image.sh -r registry.example.com -u your-username --push
+```
+
+### 手动发布步骤
+
+#### 1. 登录 Docker Hub
+
+```bash
+docker login
+# 输入用户名和密码（或使用访问令牌）
+```
+
+#### 2. 为镜像打标签
+
+```bash
+# Docker Hub 格式：用户名/仓库名:标签
+docker tag ms_tmdb:latest your-username/ms_tmdb:latest
+docker tag ms_tmdb:latest your-username/ms_tmdb:v1.0.0
+```
+
+#### 3. 推送镜像
+
+```bash
+docker push your-username/ms_tmdb:latest
+docker push your-username/ms_tmdb:v1.0.0
+```
+
+### 多架构镜像构建和发布
+
+使用 Docker Buildx 构建支持多架构的镜像：
+
+```bash
+# 创建并启用 Buildx
+docker buildx create --name ms-tmdb-builder --use
+docker buildx inspect --bootstrap
+
+# 构建并推送
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -f docker/runtime.Dockerfile \
+  -t your-username/ms_tmdb:latest \
+  -t your-username/ms_tmdb:v1.0.0 \
+  --push .
+```
+
+### 使用访问令牌（更安全）
+
+1. 在 Docker Hub 官网创建访问令牌：https://hub.docker.com/settings/security
+2. 使用令牌登录：
+
+```bash
+echo "your-access-token" | docker login -u your-username --password-stdin
+```
+
+### 验证发布的镜像
+
+```bash
+# 拉取镜像测试
+docker pull your-username/ms_tmdb:latest
+
+# 查看镜像信息
+docker inspect your-username/ms_tmdb:latest
+```
+
 ## 项目 CI 工作流程
 
 项目在 GitHub Actions 中配置了自动构建和推送：
@@ -148,3 +228,11 @@ volumes:
 1. 当推送到 `main` 分支或打标签时触发
 2. 分别构建前端和后端（amd64 和 arm64）
 3. 构建多架构 Docker 镜像并推送到 Docker Hub
+
+### 设置 CI Secrets
+
+在 GitHub 仓库设置中添加以下 Secrets：
+
+- `DOCKERHUB_USERNAME`：您的 Docker Hub 用户名
+- `DOCKERHUB_TOKEN`：Docker Hub 访问令牌
+- `DOCKERHUB_IMAGE_NAME`（可选）：镜像名称，默认为仓库名
