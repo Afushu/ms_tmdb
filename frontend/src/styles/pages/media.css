@@ -1,27 +1,31 @@
 .poster-grid {
-  @apply grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5;
+  @apply grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5;
 }
 
 .poster-card {
-  @apply block overflow-hidden rounded-xl transition;
-  background: linear-gradient(160deg, rgba(27, 40, 64, 0.88) 0%, rgba(24, 36, 58, 0.68) 100%);
-  border: 1px solid rgba(191, 219, 254, 0.16);
-  box-shadow: var(--glass-shadow-soft);
-  backdrop-filter: blur(10px) saturate(145%);
+  @apply block overflow-hidden rounded-lg transition;
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 8px 22px rgba(15, 23, 42, 0.04);
 }
 
 .poster-card:hover {
-  transform: translateY(-4px);
-  border-color: rgba(56, 189, 248, 0.34);
-  box-shadow: 0 20px 36px rgba(1, 180, 228, 0.16);
+  transform: translateY(-3px);
+  border-color: var(--accent-hover-border);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 14px 30px var(--accent-ring);
 }
 
 .poster-img {
   @apply aspect-[2/3] w-full object-cover;
+  background: var(--surface-muted);
 }
 
 .poster-info {
-  @apply px-2.5 py-2;
+  @apply px-3 py-2.5;
 }
 
 .poster-meta {
@@ -30,7 +34,7 @@
 }
 
 .poster-rating {
-  @apply rounded-full px-2 py-0.5 text-[11px] font-medium;
+  @apply rounded px-2 py-0.5 text-[11px] font-medium;
   color: #fde68a;
   background: rgba(120, 53, 15, 0.34);
   border: 1px solid rgba(251, 191, 36, 0.22);
@@ -45,7 +49,7 @@
 }
 
 .detail-poster-img {
-  @apply w-full rounded-xl;
+  @apply w-full rounded-lg;
   border: 1px solid rgba(148, 163, 184, 0.18);
   box-shadow: 0 22px 44px rgba(0, 0, 0, 0.34);
 }
@@ -55,7 +59,7 @@
 }
 
 .detail-back-btn {
-  @apply rounded-full px-3 py-1.5 text-xs font-medium text-white transition;
+  @apply rounded-md px-3 py-1.5 text-xs font-medium text-white transition;
   background: rgba(15, 23, 42, 0.62);
   border: 1px solid rgba(226, 232, 240, 0.22);
   backdrop-filter: blur(12px) saturate(140%);
@@ -67,7 +71,7 @@
 }
 
 .genre-pill {
-  @apply rounded-full px-3 py-1 text-xs font-medium;
+  @apply rounded-md px-3 py-1 text-xs font-medium;
   color: #bae6fd;
   background: rgba(2, 132, 199, 0.18);
   border: 1px solid rgba(56, 189, 248, 0.22);
@@ -193,7 +197,7 @@
 }
 
 .badge {
-  @apply rounded-full px-3 py-1 text-xs;
+  @apply rounded px-3 py-1 text-xs;
   color: rgba(226, 232, 240, 0.9);
   background: rgba(30, 41, 59, 0.72);
   border: 1px solid rgba(148, 163, 184, 0.22);
@@ -211,8 +215,22 @@
   @apply aspect-[2/3] w-full rounded-lg object-cover;
 }
 
+.search-toolbar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.search-toolbar-form {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .search-item {
-  @apply rounded-xl p-3 transition;
+  @apply rounded-lg p-3 transition;
   background: rgba(27, 40, 64, 0.72);
   border: 1px solid rgba(191, 219, 254, 0.16);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.22);
@@ -231,7 +249,7 @@
 }
 
 .search-score-badge {
-  @apply shrink-0 rounded-full px-2.5 py-1 text-xs font-medium;
+  @apply shrink-0 rounded-md px-2.5 py-1 text-xs font-medium;
   color: #fde68a;
   background: rgba(120, 53, 15, 0.32);
   border: 1px solid rgba(251, 191, 36, 0.24);
@@ -240,6 +258,12 @@
 .search-page-title {
   @apply mt-1 text-2xl font-bold md:text-3xl;
   color: #eef7ff;
+}
+
+@media (min-width: 768px) {
+  .search-toolbar-form {
+    grid-template-columns: 140px minmax(0, 1fr) auto;
+  }
 }
 
 .person-photo-strip {

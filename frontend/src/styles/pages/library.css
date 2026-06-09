@@ -5,19 +5,29 @@
 }
 
 .empty-state {
-  @apply rounded-2xl px-4 py-10 text-center text-sm;
-  color: rgba(226, 232, 240, 0.84);
-  background: linear-gradient(150deg, rgba(27, 40, 64, 0.74) 0%, rgba(24, 36, 58, 0.58) 100%);
-  border: 1px dashed rgba(191, 219, 254, 0.24);
+  @apply rounded-lg px-4 py-12 text-center text-sm;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px dashed var(--glass-border);
 }
 
 .library-toolbar {
   @apply flex flex-col justify-between gap-4 md:flex-row md:items-center;
+  position: relative;
+  overflow: hidden;
+}
+
+.library-toolbar::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-soft));
 }
 
 .library-toolbar-title {
-  @apply mt-1 text-2xl font-bold md:text-3xl;
-  color: #eef7ff;
+  @apply mt-1 text-xl font-semibold md:text-2xl;
+  color: var(--text-main);
 }
 
 .library-toolbar-actions {
@@ -30,14 +40,15 @@
 }
 
 .library-list-summary {
-  @apply flex flex-wrap items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm;
-  color: rgba(226, 232, 240, 0.86);
-  background: rgba(27, 40, 64, 0.58);
-  border: 1px solid rgba(191, 219, 254, 0.14);
+  @apply flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-soft);
 }
 
 .library-delete-btn {
-  @apply flex h-8 w-8 items-center justify-center rounded-full text-sm shadow-sm transition-all duration-200 disabled:cursor-not-allowed;
+  @apply flex h-8 w-8 items-center justify-center rounded-lg text-sm shadow-sm transition-all duration-200 disabled:cursor-not-allowed;
   color: #fecaca;
   background: rgba(127, 29, 29, 0.72);
   border: 1px solid rgba(248, 113, 113, 0.42);
@@ -48,12 +59,12 @@
 }
 
 .table-row-hover {
-  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  border-top: 1px solid var(--border-muted);
   transition: background-color 0.16s ease;
 }
 
 .table-row-hover:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface-muted);
 }
 
 .table-action-btn {

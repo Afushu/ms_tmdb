@@ -42,6 +42,7 @@ func (l *ListAutoSyncLogsLogic) ListAutoSyncLogs(req *types.AdminAutoSyncLogList
 
 	var records []model.AutoSyncExecutionLog
 	if err := query.
+		Select("id", "triggered_at", "cron_expr", "mode", "batch_size", "started_at", "finished_at", "duration_ms", "status", "checked", "synced", "failed", "message", "created_at").
 		Order("id DESC").
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).

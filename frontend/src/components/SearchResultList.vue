@@ -62,7 +62,7 @@ function prefetchSearchItem(item: SearchResultItem) {
           </p>
         </div>
         <span v-if="typeof item.vote_average === 'number'" class="search-score-badge">
-          ⭐ {{ item.vote_average.toFixed(1) }}
+          评分 {{ item.vote_average.toFixed(1) }}
         </span>
       </RouterLink>
     </li>

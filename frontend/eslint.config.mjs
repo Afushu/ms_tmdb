@@ -20,6 +20,7 @@ export default tseslint.config(
         sourceType: "module",
       },
       globals: {
+        __APP_VERSION__: "readonly",
         document: "readonly",
         Event: "readonly",
         HTMLElement: "readonly",
@@ -28,6 +29,7 @@ export default tseslint.config(
         MouseEvent: "readonly",
         Node: "readonly",
         setTimeout: "readonly",
+        URL: "readonly",
         window: "readonly",
       },
     },

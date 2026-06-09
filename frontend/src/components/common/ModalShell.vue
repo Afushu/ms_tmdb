@@ -18,9 +18,14 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div v-if="visible" class="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-6">
+  <div
+    v-if="visible"
+    class="fixed inset-0 z-[1300] flex items-center justify-center p-3 sm:p-6"
+    role="dialog"
+    aria-modal="true"
+  >
     <div class="absolute inset-0 bg-black/60 backdrop-blur-[2px]" @click="emit('close')" />
-    <section :class="['panel-glass relative z-10 w-full overflow-hidden rounded-2xl', maxWidthClass]">
+    <section :class="['panel-glass relative z-10 w-full overflow-hidden rounded-lg', maxWidthClass]">
       <div
         class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-white/10 bg-black/35 px-4 py-3 backdrop-blur sm:px-6"
       >

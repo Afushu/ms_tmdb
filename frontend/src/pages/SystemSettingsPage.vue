@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import GlassSelect from "@/components/GlassSelect.vue";
+import ToastNotice from "@/components/common/ToastNotice.vue";
 import {
   clearAutoSyncLogs,
   getAutoSyncLogDetail,
@@ -15,6 +16,7 @@ import {
   type AdminAutoSyncLogItem,
   type AdminAutoSyncMode,
 } from "@/api/admin";
+import { useToastNotice } from "@/composables/useToastNotice";
 import { resolveErrorMessage } from "@/utils/errors";
 
 const loading = ref(false);
@@ -22,7 +24,6 @@ const appVersion = __APP_VERSION__;
 
 const proxySaving = ref(false);
 const proxyError = ref("");
-const proxyMessage = ref("");
 const proxyEnabled = ref(false);
 const proxyURL = ref("");
 const proxyLocalWriteEnabled = ref(true);
@@ -31,7 +32,6 @@ const proxyTimeoutRestartRequired = ref(false);
 
 const syncSaving = ref(false);
 const syncError = ref("");
-const syncMessage = ref("");
 const syncEnabled = ref(true);
 const syncCronExpr = ref("*/30 * * * *");
 const syncMode = ref<AdminAutoSyncMode>("update_unmodified");
@@ -44,7 +44,6 @@ const logsLoading = ref(false);
 const logsClearing = ref(false);
 const clearLogsConfirmVisible = ref(false);
 const logsError = ref("");
-const logsMessage = ref("");
 const logsStatus = ref("");
 const logsPage = ref(1);
 const logsPageSize = ref(10);
@@ -59,6 +58,7 @@ const detailSyncedPage = ref(1);
 const detailSyncedPageSize = ref(10);
 const detailFailedPage = ref(1);
 const detailFailedPageSize = ref(10);
+const { toastVisible, toastText, toastTone, showToastNotice, closeToastNotice } = useToastNotice();
 
 const modeOptions: Array<{ label: string; value: AdminAutoSyncMode; hint: string }> = [
   { label: "仅更新未在本地修改的字段", value: "update_unmodified", hint: "保留本地改动，只更新 TMDB 远端变化字段" },
@@ -267,11 +267,10 @@ function closeClearLogsConfirm() {
 async function clearLogs() {
   logsClearing.value = true;
   logsError.value = "";
-  logsMessage.value = "";
 
   try {
     const resp = await clearAutoSyncLogs();
-    logsMessage.value = resp.data.message || "执行日志已清空";
+    showToastNotice(resp.data.message || "执行日志已清空");
     closeLogDetail();
     logsPage.value = 1;
     await loadAutoSyncLogs(1);
@@ -309,6 +308,9 @@ async function loadLogDetail(id: number, params: AdminAutoSyncLogDetailParams = 
       failed_page_size: params.failed_page_size ?? detailFailedPageSize.value,
     });
     const data = resp.data;
+    if (!detailModalVisible.value || activeLogId.value !== id) {
+      return;
+    }
     activeLogDetail.value = data;
     detailSyncedPageSize.value = normalizeNumber(Number(data.synced_page_size) || detailSyncedPageSize.value, 1, 100);
     detailFailedPageSize.value = normalizeNumber(Number(data.failed_page_size) || detailFailedPageSize.value, 1, 100);
@@ -323,9 +325,14 @@ async function loadLogDetail(id: number, params: AdminAutoSyncLogDetailParams = 
       detailTotalPages(data.failed, detailFailedPageSize.value),
     );
   } catch (err: unknown) {
+    if (!detailModalVisible.value || activeLogId.value !== id) {
+      return;
+    }
     detailError.value = resolveErrorMessage(err, "读取日志明细失败");
   } finally {
-    detailLoading.value = false;
+    if (activeLogId.value === id) {
+      detailLoading.value = false;
+    }
   }
 }
 
@@ -380,9 +387,7 @@ function closeLogDetail() {
 async function loadSettings() {
   loading.value = true;
   proxyError.value = "";
-  proxyMessage.value = "";
   syncError.value = "";
-  syncMessage.value = "";
 
   try {
     const [proxyResp, autoSyncResp] = await Promise.all([getProxySettings(), getAutoSyncSettings()]);
@@ -412,7 +417,6 @@ async function loadSettings() {
 async function saveProxySettings() {
   proxySaving.value = true;
   proxyError.value = "";
-  proxyMessage.value = "";
   try {
     const nextProxyURL = proxyEnabled.value ? normalizeProxyURL(proxyURL.value) : "";
     const resp = await updateProxySettings({
@@ -426,11 +430,14 @@ async function saveProxySettings() {
     proxyLocalWriteEnabled.value = data.local_write_enabled !== false;
     proxyTimeout.value = normalizeTimeout(Number(data.timeout) || proxyTimeout.value);
     proxyTimeoutRestartRequired.value = !!data.timeout_restart_required;
-    proxyMessage.value = proxyTimeoutRestartRequired.value
-      ? "网络配置已保存，请重启后端使请求超时生效"
-      : proxyEnabled.value
-        ? "代理配置已保存"
-        : "代理已关闭，当前为直连";
+    showToastNotice(
+      proxyTimeoutRestartRequired.value
+        ? "网络配置已保存，请重启后端使请求超时生效"
+        : proxyEnabled.value
+          ? "代理配置已保存"
+          : "代理已关闭，当前为直连",
+      proxyEnabled.value ? "success" : "info",
+    );
   } catch (err: unknown) {
     proxyError.value = resolveErrorMessage(err, "保存代理设置失败");
   } finally {
@@ -441,7 +448,6 @@ async function saveProxySettings() {
 async function saveAutoSyncSettings() {
   syncSaving.value = true;
   syncError.value = "";
-  syncMessage.value = "";
   try {
     const payload = {
       enabled: syncEnabled.value,
@@ -458,7 +464,10 @@ async function saveAutoSyncSettings() {
     syncBatchSize.value = normalizeNumber(Number(data.batch_size), 1, 500);
     syncStartDelaySecond.value = normalizeNumber(Number(data.start_delay_second), 0, 3600);
     syncRunning.value = !!data.running;
-    syncMessage.value = syncEnabled.value ? "自动同步配置已保存并生效" : "自动同步已关闭";
+    showToastNotice(
+      syncEnabled.value ? "自动同步配置已保存并生效" : "自动同步已关闭",
+      syncEnabled.value ? "success" : "info",
+    );
   } catch (err: unknown) {
     syncError.value = resolveErrorMessage(err, "保存自动同步设置失败");
   } finally {
@@ -469,13 +478,12 @@ async function saveAutoSyncSettings() {
 async function triggerAutoSyncNow() {
   syncTriggering.value = true;
   syncError.value = "";
-  syncMessage.value = "";
 
   try {
     const resp = await runAutoSyncNow();
     const data = resp.data;
     syncRunning.value = !!data.running;
-    syncMessage.value = data.message || "已触发一次立即同步任务";
+    showToastNotice(data.message || "已触发一次立即同步任务", "success");
     await loadAutoSyncLogs(1);
   } catch (err: unknown) {
     syncError.value = resolveErrorMessage(err, "触发立即同步失败");
@@ -600,7 +608,6 @@ onMounted(reloadAll);
             {{ proxySaving ? "保存中..." : "保存代理设置" }}
           </button>
         </div>
-        <p v-if="proxyMessage" class="settings-feedback settings-feedback-success">{{ proxyMessage }}</p>
         <p v-if="proxyError" class="settings-feedback settings-feedback-error">{{ proxyError }}</p>
       </div>
 
@@ -682,7 +689,6 @@ onMounted(reloadAll);
             {{ syncTriggering ? "触发中..." : "立即执行一次" }}
           </button>
         </div>
-        <p v-if="syncMessage" class="settings-feedback settings-feedback-success">{{ syncMessage }}</p>
         <p v-if="syncError" class="settings-feedback settings-feedback-error">{{ syncError }}</p>
       </div>
     </section>
@@ -720,7 +726,6 @@ onMounted(reloadAll);
         </div>
       </div>
 
-      <p v-if="logsMessage" class="settings-feedback settings-feedback-success">{{ logsMessage }}</p>
       <p v-if="logsError" class="settings-feedback settings-feedback-error">{{ logsError }}</p>
 
       <div class="table-shell settings-table-shell">
@@ -797,10 +802,12 @@ onMounted(reloadAll);
 
     <div
       v-if="detailModalVisible"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-3 sm:p-4"
+      class="fixed inset-0 z-[1300] flex items-center justify-center bg-black/55 p-3 sm:p-4"
+      role="dialog"
+      aria-modal="true"
       @click.self="closeLogDetail"
     >
-      <div class="panel-glass settings-detail-modal max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-2xl">
+      <div class="panel-glass settings-detail-modal max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-lg">
         <div class="modal-header-dark">
           <div>
             <p class="section-label">Run Detail</p>
@@ -985,10 +992,12 @@ onMounted(reloadAll);
 
     <div
       v-if="clearLogsConfirmVisible"
-      class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4"
+      class="fixed inset-0 z-[1300] flex items-center justify-center bg-black/45 p-4"
+      role="dialog"
+      aria-modal="true"
       @click.self="closeClearLogsConfirm"
     >
-      <div class="panel-glass w-full max-w-md rounded-2xl p-5">
+      <div class="panel-glass w-full max-w-md rounded-lg p-5">
         <h4 class="text-base font-semibold text-red-700">确认清空执行日志</h4>
         <p class="mt-2 text-sm text-black/70">确认要清空所有执行日志吗？清空后无法恢复。</p>
 
@@ -1002,5 +1011,7 @@ onMounted(reloadAll);
         </div>
       </div>
     </div>
+
+    <ToastNotice :visible="toastVisible" :message="toastText" :tone="toastTone" @close="closeToastNotice" />
   </section>
 </template>

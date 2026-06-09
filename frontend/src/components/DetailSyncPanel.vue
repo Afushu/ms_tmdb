@@ -2,6 +2,8 @@
 import { computed, ref, watch } from "vue";
 import type { AdminSyncMode, AdminSyncPayload, AdminSyncResp } from "@/api/admin";
 import { syncMovie, syncPerson, syncTV } from "@/api/admin";
+import ToastNotice from "@/components/common/ToastNotice.vue";
+import { useToastNotice } from "@/composables/useToastNotice";
 
 const props = defineProps<{
   mediaType: "movie" | "tv" | "person";
@@ -22,6 +24,7 @@ const syncError = ref("");
 const syncMessage = ref("");
 const changedFields = ref<string[]>([]);
 const selectedOverwriteFields = ref<string[]>([]);
+const { toastVisible, toastText, toastTone, showToastNotice, closeToastNotice } = useToastNotice();
 
 const modeOptions: Array<{ label: string; value: AdminSyncMode; hint: string }> = [
   { label: "仅更新未变更字段", value: "update_unmodified", hint: "保留本地已修改字段，只更新其它字段" },
@@ -163,7 +166,7 @@ async function applySync() {
     const data = resp.data as AdminSyncResp;
     changedFields.value = Array.isArray(data.changed_fields) ? data.changed_fields : [];
     selectedOverwriteFields.value = changedFields.value.filter((field) => !data.overwritten_fields?.includes(field));
-    syncMessage.value = data.message || "同步完成";
+    showToastNotice(data.message || "同步完成");
     emit("synced");
   } catch (err: unknown) {
     syncError.value = resolveErrorMessage(err, "同步失败");
@@ -261,5 +264,7 @@ watch(
       <span v-if="syncMessage" class="text-xs text-green-700">{{ syncMessage }}</span>
       <span v-if="syncError" class="text-xs text-red-600">{{ syncError }}</span>
     </div>
+
+    <ToastNotice :visible="toastVisible" :message="toastText" :tone="toastTone" @close="closeToastNotice" />
   </div>
 </template>

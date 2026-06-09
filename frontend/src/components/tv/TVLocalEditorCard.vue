@@ -17,7 +17,6 @@ const props = defineProps<{
   genreKeyword: string;
   filteredGenreOptions: GenreOption[];
   genreOptions: GenreOption[];
-  saveMessage: string;
   saveError: string;
   deleteError: string;
   tvStatusOptions: ReadonlyArray<SelectOption>;
@@ -149,7 +148,6 @@ const genreKeywordModel = computed({
     </div>
 
     <div class="mt-2">
-      <span v-if="saveMessage" class="text-xs text-green-700">{{ saveMessage }}</span>
       <span v-if="saveError" class="text-xs text-red-600">{{ saveError }}</span>
       <span v-if="deleteError" class="ml-2 text-xs text-red-600">{{ deleteError }}</span>
     </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRoute, useRouter, type LocationQueryRaw } from "vue-router";
 import GlassSelect from "@/components/GlassSelect.vue";
 import { searchByType, type SearchType } from "@/api/search";
@@ -14,6 +14,13 @@ const loading = ref(false);
 const error = ref("");
 const results = ref<SearchResultItem[]>([]);
 let searchReqSeq = 0;
+
+const hasRouteQuery = computed(() => Boolean(readQueryString(route.query.q)));
+const resultSummary = computed(() => {
+  if (loading.value) return "检索中";
+  if (results.value.length) return `${results.value.length} 条匹配`;
+  return hasRouteQuery.value ? "暂无结果" : "等待检索";
+});
 
 function readQueryString(value: unknown): string {
   if (Array.isArray(value)) return String(value[0] ?? "").trim();
@@ -127,13 +134,15 @@ watch(
 </script>
 
 <template>
-  <section class="card">
-    <div class="mb-4">
-      <p class="section-label">Search</p>
-      <h2 class="search-page-title">全站搜索</h2>
-      <p class="mt-1 text-sm text-black/55">跨电影、剧集和人物搜索 TMDB 数据，并快速进入详情页。</p>
+  <section class="search-toolbar card">
+    <div class="search-toolbar-head">
+      <div class="min-w-0">
+        <p class="section-label">检索</p>
+        <h2 class="search-page-title">全站搜索</h2>
+      </div>
+      <span class="badge">{{ resultSummary }}</span>
     </div>
-    <div class="grid gap-3 md:grid-cols-[140px_1fr_auto]">
+    <div class="search-toolbar-form">
       <GlassSelect v-model="type" :options="typeOptions" />
       <input
         v-model="query"
@@ -155,5 +164,9 @@ watch(
       <span class="badge">{{ results.length }} 条匹配</span>
     </div>
     <SearchResultList :items="results" :fallback-type="type" :limit="20" />
+  </section>
+
+  <section v-else-if="hasRouteQuery && !loading && !error" class="empty-state mt-4">
+    没有匹配结果。
   </section>
 </template>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import GlassSelect from "@/components/GlassSelect.vue";
+import ToastNotice from "@/components/common/ToastNotice.vue";
 import {
   clearProxyAccessLogs,
   clearTmdbRequestLogs,
@@ -13,6 +14,7 @@ import {
   type AdminTmdbRequestLogDetailResp,
   type AdminTmdbRequestLogItem,
 } from "@/api/admin";
+import { useToastNotice } from "@/composables/useToastNotice";
 import { resolveErrorMessage } from "@/utils/errors";
 
 type LogTab = "access" | "tmdb";
@@ -24,7 +26,6 @@ const accessLoading = ref(false);
 const accessClearing = ref(false);
 const accessLoaded = ref(false);
 const accessError = ref("");
-const accessMessage = ref("");
 const accessStatus = ref("");
 const accessKeyword = ref("");
 const accessPage = ref(1);
@@ -36,7 +37,6 @@ const tmdbLoading = ref(false);
 const tmdbClearing = ref(false);
 const tmdbLoaded = ref(false);
 const tmdbError = ref("");
-const tmdbMessage = ref("");
 const tmdbStatus = ref("");
 const tmdbKeyword = ref("");
 const tmdbPage = ref(1);
@@ -52,6 +52,7 @@ const accessDetail = ref<AdminProxyAccessLogDetailResp | null>(null);
 const tmdbDetail = ref<AdminTmdbRequestLogDetailResp | null>(null);
 
 const clearConfirmVisible = ref(false);
+const { toastVisible, toastText, toastTone, showToastNotice, closeToastNotice } = useToastNotice();
 
 const statusOptions = [
   { label: "全部状态", value: "" },
@@ -258,10 +259,9 @@ async function clearCurrentLogs() {
   if (activeTab.value === "access") {
     accessClearing.value = true;
     accessError.value = "";
-    accessMessage.value = "";
     try {
       const resp = await clearProxyAccessLogs();
-      accessMessage.value = resp.data.message || "代理访问日志已清空";
+      showToastNotice(resp.data.message || "代理访问日志已清空");
       accessPage.value = 1;
       await loadAccessLogs(1);
       closeDetail();
@@ -276,10 +276,9 @@ async function clearCurrentLogs() {
 
   tmdbClearing.value = true;
   tmdbError.value = "";
-  tmdbMessage.value = "";
   try {
     const resp = await clearTmdbRequestLogs();
-    tmdbMessage.value = resp.data.message || "TMDB 请求日志已清空";
+    showToastNotice(resp.data.message || "TMDB 请求日志已清空");
     tmdbPage.value = 1;
     await loadTmdbLogs(1);
     closeDetail();
@@ -363,9 +362,24 @@ function accessPath(value: string) {
   return splitPathAndQuery(value).path;
 }
 
+function formatQueryForDisplay(query: string, max: number) {
+  const text = (query ?? "").trim().replace(/^\?/, "");
+  if (!text) {
+    return "无查询参数";
+  }
+  const params = new window.URLSearchParams(text);
+  for (const key of [...params.keys()]) {
+    if (key.toLowerCase() === "api_key") {
+      params.delete(key);
+    }
+  }
+  const safeQuery = params.toString();
+  return safeQuery ? `?${trimMiddle(safeQuery, max)}` : "无查询参数";
+}
+
 function accessQuery(value: string) {
   const query = splitPathAndQuery(value).query;
-  return query ? `?${trimMiddle(query, 96)}` : "无查询参数";
+  return formatQueryForDisplay(query, 96);
 }
 
 function upstreamHost(value: string) {
@@ -387,7 +401,7 @@ function upstreamQuery(value: string) {
   }
   try {
     const parsed = new URL(text);
-    return parsed.search ? trimMiddle(parsed.search, 110) : "无查询参数";
+    return formatQueryForDisplay(parsed.search, 110);
   } catch {
     return accessQuery(text);
   }
@@ -420,6 +434,12 @@ function detailEndpointPath(detail: LogDetail) {
   return detail.path || "-";
 }
 
+function detailEndpointDisplay(detail: LogDetail) {
+  const path = detailEndpointPath(detail);
+  const query = detailEndpointQuery(detail);
+  return query === "无查询参数" ? path : `${path}${query}`;
+}
+
 function detailEndpointQuery(detail: LogDetail) {
   if (isAccessDetail(detail)) {
     return accessQuery(detail.request_uri);
@@ -435,10 +455,7 @@ function detailEndpointSource(detail: LogDetail) {
 }
 
 function detailEndpointTitle(detail: LogDetail) {
-  if (isAccessDetail(detail)) {
-    return detail.request_uri || "-";
-  }
-  return detail.url || "-";
+  return detailEndpointDisplay(detail);
 }
 
 onMounted(() => {
@@ -575,7 +592,6 @@ onMounted(() => {
       </div>
 
       <template v-if="activeTab === 'access'">
-        <p v-if="accessMessage" class="settings-feedback settings-feedback-success">{{ accessMessage }}</p>
         <p v-if="accessError" class="settings-feedback settings-feedback-error">{{ accessError }}</p>
 
         <div class="logs-list-shell">
@@ -597,7 +613,6 @@ onMounted(() => {
                 <span class="logs-method">{{ item.method }}</span>
                 <code :title="accessPath(item.request_uri)">{{ accessPath(item.request_uri) }}</code>
               </div>
-              <p class="logs-query" :title="accessQuery(item.request_uri)">{{ accessQuery(item.request_uri) }}</p>
               <p v-if="item.error_message" class="logs-error-line" :title="item.error_message">
                 {{ trimMiddle(item.error_message, 120) }}
               </p>
@@ -630,7 +645,6 @@ onMounted(() => {
       </template>
 
       <template v-else>
-        <p v-if="tmdbMessage" class="settings-feedback settings-feedback-success">{{ tmdbMessage }}</p>
         <p v-if="tmdbError" class="settings-feedback settings-feedback-error">{{ tmdbError }}</p>
 
         <div class="logs-list-shell">
@@ -652,7 +666,6 @@ onMounted(() => {
                 <code :title="item.path || '-'">{{ item.path || "-" }}</code>
               </div>
               <p class="logs-host" :title="upstreamHost(item.url)">{{ upstreamHost(item.url) }}</p>
-              <p class="logs-query" :title="upstreamQuery(item.url)">{{ upstreamQuery(item.url) }}</p>
               <p v-if="item.error_message" class="logs-error-line" :title="item.error_message">
                 {{ trimMiddle(item.error_message, 120) }}
               </p>
@@ -701,10 +714,12 @@ onMounted(() => {
 
     <div
       v-if="detailVisible"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-3 sm:p-4"
+      class="fixed inset-0 z-[1300] flex items-center justify-center bg-black/55 p-3 sm:p-4"
+      role="dialog"
+      aria-modal="true"
       @click.self="closeDetail"
     >
-      <div class="panel-glass logs-detail-modal max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-2xl">
+      <div class="panel-glass logs-detail-modal max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-lg">
         <div class="modal-header-dark">
           <div>
             <p class="section-label">{{ detailType === "access" ? "Access Detail" : "TMDB Detail" }}</p>
@@ -713,62 +728,41 @@ onMounted(() => {
           <button class="btn-soft px-3 py-1.5" @click="closeDetail">关闭</button>
         </div>
 
-        <div class="max-h-[calc(92vh-72px)] overflow-y-auto px-4 py-4 sm:px-5">
+        <div class="logs-detail-content">
           <p v-if="detailLoading" class="text-sm text-black/60">详情加载中...</p>
           <p v-if="detailError" class="settings-feedback settings-feedback-error mb-3">{{ detailError }}</p>
 
           <template v-if="activeDetail">
-            <div class="settings-detail-summary-grid">
-              <article class="settings-detail-summary-item">
-                <span>时间</span>
-                <strong>{{ formatDateTime(activeDetail.created_at) }}</strong>
-              </article>
-              <article class="settings-detail-summary-item">
-                <span>状态</span>
-                <strong>{{ formatStatusCode(activeDetail.status_code) }}</strong>
-                <small>{{ activeDetail.error_message || "ok" }}</small>
-              </article>
-              <article class="settings-detail-summary-item">
-                <span>耗时</span>
-                <strong>{{ formatDuration(activeDetail.duration_ms) }}</strong>
-                <small>响应 {{ formatBytes(activeDetail.response_body_bytes) }}</small>
-              </article>
-              <article class="settings-detail-summary-item">
-                <span>{{ detailType === "access" ? "来源" : "上游" }}</span>
-                <strong>{{ detailEndpointSource(activeDetail) }}</strong>
-                <small>{{ activeDetail.method }}</small>
-              </article>
-            </div>
-
-            <div class="settings-detail-section">
-              <div class="settings-detail-section-header">
-                <div>
-                  <h5 class="text-sm font-semibold">请求信息</h5>
-                </div>
-              </div>
-              <div class="logs-detail-endpoint mt-3">
+            <div class="logs-detail-overview">
+              <div class="logs-detail-overview-main">
                 <span class="logs-method">{{ activeDetail.method }}</span>
-                <div class="logs-detail-endpoint-main">
-                  <code :title="detailEndpointTitle(activeDetail)">{{ detailEndpointPath(activeDetail) }}</code>
-                  <p :title="detailEndpointTitle(activeDetail)">{{ detailEndpointQuery(activeDetail) }}</p>
-                </div>
-                <small>{{ detailEndpointSource(activeDetail) }}</small>
+                <code :title="detailEndpointTitle(activeDetail)">{{ detailEndpointDisplay(activeDetail) }}</code>
               </div>
-              <pre v-if="activeDetail.request_body" class="settings-diff-pre mt-3 max-h-64">{{
-                bodyText(activeDetail.request_body)
-              }}</pre>
-              <p v-else class="logs-detail-empty-body mt-3">无请求正文</p>
-              <p class="mt-2 text-xs text-black/50">请求正文 {{ formatBytes(activeDetail.request_body_bytes) }}</p>
+
+              <div class="logs-detail-overview-meta">
+                <span><small>状态</small><strong :title="activeDetail.error_message || 'ok'">{{ formatStatusCode(activeDetail.status_code) }}</strong></span>
+                <span><small>耗时</small><strong>{{ formatDuration(activeDetail.duration_ms) }}</strong></span>
+                <span><small>时间</small><strong>{{ formatDateTime(activeDetail.created_at) }}</strong></span>
+                <span>
+                  <small>{{ detailType === "access" ? "来源" : "上游" }}</small>
+                  <strong>{{ detailEndpointSource(activeDetail) }}</strong>
+                </span>
+                <span><small>请求正文</small><strong>{{ formatBytes(activeDetail.request_body_bytes) }}</strong></span>
+              </div>
             </div>
 
-            <div class="settings-detail-section">
+            <pre v-if="activeDetail.request_body" class="settings-diff-pre logs-detail-request-body">{{
+              bodyText(activeDetail.request_body)
+            }}</pre>
+
+            <div class="settings-detail-section logs-detail-response-section">
               <div class="settings-detail-section-header">
                 <div>
                   <h5 class="text-sm font-semibold">响应正文</h5>
                   <p class="settings-note">{{ formatBytes(activeDetail.response_body_bytes) }}</p>
                 </div>
               </div>
-              <pre class="settings-diff-pre mt-3 max-h-[420px]">{{ bodyText(activeDetail.response_body) }}</pre>
+              <pre class="settings-diff-pre logs-detail-response-body">{{ bodyText(activeDetail.response_body) }}</pre>
             </div>
           </template>
         </div>
@@ -777,10 +771,12 @@ onMounted(() => {
 
     <div
       v-if="clearConfirmVisible"
-      class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4"
+      class="fixed inset-0 z-[1300] flex items-center justify-center bg-black/45 p-4"
+      role="dialog"
+      aria-modal="true"
       @click.self="closeClearConfirm"
     >
-      <div class="panel-glass w-full max-w-md rounded-2xl p-5">
+      <div class="panel-glass w-full max-w-md rounded-lg p-5">
         <h4 class="text-base font-semibold text-red-700">确认清空日志</h4>
         <p class="mt-2 text-sm text-black/70">
           将清空当前视图的{{ activeTab === "access" ? "外部访问日志" : "TMDB 请求日志" }}，清空后无法恢复。
@@ -794,5 +790,7 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <ToastNotice :visible="toastVisible" :message="toastText" :tone="toastTone" @close="closeToastNotice" />
   </section>
 </template>

@@ -18,11 +18,13 @@ const searching = ref(false);
 const searchError = ref("");
 const searchResults = ref<SearchResultItem[]>([]);
 const hasSearched = ref(false);
-const heroStyle = computed(() => {
-  const backdropPath = movies.value[0]?.backdrop_path;
-  if (!backdropPath) return undefined;
-  return { backgroundImage: `url(${tmdbImg(backdropPath, "w780")})` };
-});
+
+const dashboardStats = computed(() => [
+  { label: "热门电影", value: loading.value ? "加载中" : `${movies.value.slice(0, 10).length} 条` },
+  { label: "热门剧集", value: loading.value ? "加载中" : `${tvSeries.value.slice(0, 10).length} 条` },
+  { label: "搜索结果", value: hasSearched.value ? `${searchResults.value.length} 条` : "待检索" },
+  { label: "数据状态", value: error.value ? "异常" : loading.value ? "刷新中" : "就绪" },
+]);
 
 const searchTypeOptions: ReadonlyArray<{ label: string; value: SearchType }> = [
   { label: "综合", value: "multi" },
@@ -85,18 +87,17 @@ onMounted(loadData);
 </script>
 
 <template>
-  <section class="home-hero hero-banner" :style="heroStyle">
-    <div class="home-hero-overlay">
-      <p class="home-hero-tag">欢迎。</p>
-      <h2 class="home-hero-title">电影、剧集、人物一站式搜索</h2>
-      <p class="home-hero-desc">输入关键词即可查看结果，并快速进入对应详情页。</p>
-
-      <div class="home-hero-stats" aria-label="平台能力">
-        <span class="home-hero-stat">TMDB 代理</span>
-        <span class="home-hero-stat">本地缓存</span>
-        <span class="home-hero-stat">字段覆盖</span>
+  <section class="home-workbench">
+    <div class="home-search-panel card">
+      <div class="home-panel-head">
+        <div class="min-w-0">
+          <p class="section-label">工作台</p>
+          <h2 class="home-workbench-title">媒体数据检索</h2>
+        </div>
+        <button class="btn-soft btn-primary-compact" :disabled="loading" @click="loadData">
+          {{ loading ? "刷新中..." : "刷新数据" }}
+        </button>
       </div>
-
       <div class="home-search-row">
         <input
           v-model="searchQuery"
@@ -106,7 +107,7 @@ onMounted(loadData);
           @keyup.enter="handleHomeSearch"
         />
         <button class="home-search-btn" :disabled="searching" @click="handleHomeSearch">
-          {{ searching ? "探索中..." : "探索" }}
+          {{ searching ? "检索中..." : "检索" }}
         </button>
       </div>
 
@@ -124,6 +125,13 @@ onMounted(loadData);
 
       <p v-if="searchError" class="mt-3 text-sm text-rose-200">{{ searchError }}</p>
     </div>
+
+    <div class="home-stat-grid">
+      <article v-for="item in dashboardStats" :key="item.label" class="home-stat-card">
+        <span>{{ item.label }}</span>
+        <strong>{{ item.value }}</strong>
+      </article>
+    </div>
   </section>
 
   <section v-if="hasSearched" class="card mt-4">
@@ -136,15 +144,15 @@ onMounted(loadData);
     <SearchResultList :items="searchResults" :fallback-type="searchType" empty-text="未找到结果，请尝试更换关键词。" />
   </section>
 
-  <section class="mt-4 flex items-center justify-between">
-    <p class="section-label">今日看点</p>
-    <button class="btn-primary" :disabled="loading" @click="loadData">
-      {{ loading ? "刷新中..." : "刷新数据" }}
-    </button>
+  <section class="home-section-head">
+    <div>
+      <p class="section-label">今日看点</p>
+      <h3 class="section-title !mb-0">热门内容</h3>
+    </div>
+    <span class="badge">TMDB Popular</span>
   </section>
   <p v-if="error" class="mt-3 text-sm text-red-600">{{ error }}</p>
 
-  <!-- 热门电影 -->
   <section class="mt-6">
     <h3 class="section-title">热门电影</h3>
     <div class="poster-grid">
@@ -161,7 +169,7 @@ onMounted(loadData);
         <div class="poster-info">
           <p class="truncate text-sm font-medium">{{ item.title || item.original_title }}</p>
           <p class="poster-meta">
-            <span class="poster-rating">⭐ {{ item.vote_average?.toFixed(1) ?? "-" }}</span>
+            <span class="poster-rating">评分 {{ item.vote_average?.toFixed(1) ?? "-" }}</span>
             <span>{{ item.release_date?.slice(0, 4) ?? "" }}</span>
           </p>
         </div>
@@ -169,7 +177,6 @@ onMounted(loadData);
     </div>
   </section>
 
-  <!-- 热门剧集 -->
   <section class="mt-8">
     <h3 class="section-title">热门剧集</h3>
     <div class="poster-grid">
@@ -186,7 +193,7 @@ onMounted(loadData);
         <div class="poster-info">
           <p class="truncate text-sm font-medium">{{ item.name || item.original_name }}</p>
           <p class="poster-meta">
-            <span class="poster-rating">⭐ {{ item.vote_average?.toFixed(1) ?? "-" }}</span>
+            <span class="poster-rating">评分 {{ item.vote_average?.toFixed(1) ?? "-" }}</span>
             <span>{{ item.first_air_date?.slice(0, 4) ?? "" }}</span>
           </p>
         </div>

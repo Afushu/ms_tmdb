@@ -633,8 +633,8 @@ onMounted(loadData);
       <div class="glass-pill gap-2">
         <button
           v-for="tab in [
-            { key: 'movie', label: '🎬 电影' },
-            { key: 'tv', label: '📺 剧集' },
+            { key: 'movie', label: '电影' },
+            { key: 'tv', label: '剧集' },
           ] as const"
           :key="tab.key"
           class="glass-pill-btn px-5"
@@ -712,9 +712,14 @@ onMounted(loadData);
     </div>
   </ModalShell>
 
-  <div v-if="deleteModalVisible" class="fixed inset-0 z-[1100] flex items-center justify-center p-4">
+  <div
+    v-if="deleteModalVisible"
+    class="fixed inset-0 z-[1300] flex items-center justify-center p-4"
+    role="dialog"
+    aria-modal="true"
+  >
     <div class="absolute inset-0 bg-black/65 backdrop-blur-[2px]" @click="closeDeleteModal" />
-    <section class="panel-glass relative z-10 w-full max-w-md rounded-2xl p-5">
+    <section class="panel-glass relative z-10 w-full max-w-md rounded-lg p-5">
       <h3 class="text-base font-semibold text-ink">确认删除</h3>
       <p class="mt-2 text-sm text-black/70">
         将删除本地数据：
@@ -779,7 +784,8 @@ onMounted(loadData);
           @touchstart.passive="prefetchItemDetail(item)"
         >
           <img
-            :src="tmdbImg(item.poster_path, 'w185')"
+            :src="tmdbImg(item.poster_path, 'w342')"
+            :srcset="`${tmdbImg(item.poster_path, 'w342')} 1x, ${tmdbImg(item.poster_path, 'w500')} 2x`"
             :alt="item.title || item.name"
             class="poster-img"
             loading="lazy"
@@ -787,7 +793,7 @@ onMounted(loadData);
           <div class="poster-info">
             <p class="truncate text-sm font-medium">{{ item.title || item.name }}</p>
             <p class="poster-meta">
-              <span class="poster-rating">⭐ {{ (item.vote_average ?? 0).toFixed(1) }}</span>
+              <span class="poster-rating">评分 {{ (item.vote_average ?? 0).toFixed(1) }}</span>
               <span>{{ (item.release_date || item.first_air_date || "").slice(0, 4) }}</span>
             </p>
             <span v-if="item.tmdb_id < 0" class="chip-local-new mt-1 text-[10px]"> 本地新建 </span>
@@ -821,7 +827,7 @@ onMounted(loadData);
               <p class="font-medium">{{ item.title || item.name }}</p>
               <p class="text-xs text-black/50">{{ item.original_title || item.original_name }}</p>
             </td>
-            <td class="px-4 py-3">⭐ {{ (item.vote_average ?? 0).toFixed(1) }}</td>
+            <td class="px-4 py-3">评分 {{ (item.vote_average ?? 0).toFixed(1) }}</td>
             <td class="px-4 py-3">{{ item.release_date || item.first_air_date || "-" }}</td>
             <td class="px-4 py-3">
               <span class="text-xs text-black/70">

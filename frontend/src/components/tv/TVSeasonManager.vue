@@ -13,7 +13,6 @@ defineProps<{
   seasonEditorVisible: boolean;
   seasonEditorMode: "create" | "edit";
   seasonLocalSaved: boolean;
-  seasonLocalMessage: string;
   seasonFormError: string;
   episodeFormError: string;
   seasonForm: TVSeasonForm;
@@ -152,9 +151,6 @@ defineProps<{
       class="mt-1 text-xs text-green-700"
     >
       当前季已保存到本地数据库
-    </p>
-    <p v-if="seasonLocalMessage" class="mt-1 text-xs text-green-700">
-      {{ seasonLocalMessage }}
     </p>
     <p v-if="seasonFormError" class="mt-1 text-xs text-red-600">
       {{ seasonFormError }}
@@ -302,9 +298,9 @@ defineProps<{
         <div class="mt-2 min-w-0 md:mt-0 md:flex-1">
           <div class="flex flex-wrap gap-1.5">
             <span class="badge">{{ formatEpisodeCode(ep.episode_number) }}</span>
-            <span class="badge">📅 {{ ep.air_date || "-" }}</span>
-            <span class="badge">⏱ {{ formatEpisodeRuntime(ep.runtime) }}</span>
-            <span class="badge">⭐ {{ formatEpisodeRating(ep.vote_average) }}</span>
+            <span class="badge">播出 {{ ep.air_date || "-" }}</span>
+            <span class="badge">片长 {{ formatEpisodeRuntime(ep.runtime) }}</span>
+            <span class="badge">评分 {{ formatEpisodeRating(ep.vote_average) }}</span>
           </div>
           <template v-if="seasonLocalSaved && editingEpisodeNumber === ep.episode_number">
             <p class="mt-2 text-xs" :class="episodeEditChangedCount > 0 ? 'text-amber-700' : 'text-black/55'">

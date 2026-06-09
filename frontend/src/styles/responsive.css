@@ -1,30 +1,118 @@
+@media (max-width: 1023px) {
+  .admin-sidebar {
+    width: var(--sidebar-width);
+    transform: translateX(-100%);
+    transition: transform 0.18s ease;
+    box-shadow: 18px 0 42px rgba(0, 0, 0, 0.32);
+  }
+
+  .admin-app-sidebar-collapsed .admin-sidebar {
+    width: var(--sidebar-width);
+  }
+
+  .admin-sidebar-open {
+    transform: translateX(0);
+  }
+
+  .admin-sidebar-mask {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: block;
+    background: rgba(0, 0, 0, 0.46);
+  }
+
+  .admin-workspace {
+    margin-left: 0;
+  }
+
+  .admin-app-sidebar-collapsed .admin-workspace {
+    margin-left: 0;
+  }
+
+  .admin-app-sidebar-collapsed .admin-brand {
+    justify-content: flex-start;
+    padding: 0 14px;
+  }
+
+  .admin-app-sidebar-collapsed .admin-brand-copy,
+  .admin-app-sidebar-collapsed .admin-menu-title,
+  .admin-app-sidebar-collapsed .admin-menu-link > span:last-child {
+    display: flex;
+  }
+
+  .admin-app-sidebar-collapsed .admin-menu-title {
+    display: block;
+  }
+
+  .admin-app-sidebar-collapsed .admin-menu {
+    padding: 10px 8px;
+  }
+
+  .admin-app-sidebar-collapsed .admin-menu-link {
+    justify-content: flex-start;
+    padding: 0 12px;
+  }
+
+  .admin-topbar {
+    padding: 0 16px;
+  }
+
+  .admin-icon-btn {
+    display: grid;
+  }
+
+  .admin-tabs {
+    padding: 0 16px;
+  }
+
+  .vben-page-header {
+    padding: 16px;
+  }
+}
+
 @media (max-width: 767px) {
   .page-shell {
     @apply px-3;
   }
 
-  .app-header-inner {
-    @apply gap-3;
+  .admin-topbar {
+    min-height: 58px;
+    gap: 10px;
+    padding: 0 12px;
   }
 
-  .app-nav {
-    width: 100%;
-    justify-content: flex-start;
-    overflow-x: auto;
-    scrollbar-width: none;
+  .admin-page-title {
+    font-size: 16px;
   }
 
-  .app-nav::-webkit-scrollbar {
+  .admin-quick-link {
     display: none;
   }
 
-  .app-nav-link {
-    @apply px-3 py-1.5 text-xs;
-    white-space: nowrap;
+  .admin-tabs {
+    min-height: 42px;
+    padding: 0 12px;
   }
 
-  .app-content {
-    @apply pt-40;
+  .admin-tab-link {
+    max-width: 126px;
+  }
+
+  .vben-page {
+    gap: 12px;
+  }
+
+  .vben-page-header {
+    flex-direction: column;
+  }
+
+  .vben-page-title {
+    font-size: 18px;
+  }
+
+  .vben-page-extra {
+    width: 100%;
   }
 
   .card {
@@ -35,20 +123,19 @@
     @apply p-4;
   }
 
-  .home-hero {
-    min-height: 360px;
-  }
-
-  .home-hero-overlay {
-    @apply p-4;
-  }
-
   .home-search-row {
-    @apply rounded-2xl;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .home-search-btn {
     width: 100%;
+  }
+
+  .toast-notice {
+    top: 64px;
+    right: 16px;
+    left: 16px;
+    width: auto;
   }
 }
 
@@ -67,8 +154,9 @@
 }
 
 @media (max-width: 1024px) {
-  .app-header,
-  .app-nav,
+  .admin-topbar,
+  .admin-tabs,
+  .vben-page-header,
   .card,
   .poster-card,
   .glass-pill,

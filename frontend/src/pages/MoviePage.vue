@@ -4,9 +4,11 @@ import { useRoute, useRouter } from "vue-router";
 import { compareMovieRemote, deleteMovie, updateMovie } from "@/api/admin";
 import { prefetchMediaDetail } from "@/api/prefetch";
 import type { AdminCompareFieldDetail, AdminSyncMode } from "@/api/admin";
+import ToastNotice from "@/components/common/ToastNotice.vue";
 import { getMovieCredits, getMovieDetail, getMovieGenreList } from "@/api/movie";
 import { tmdbImg } from "@/api/tmdb";
 import { formatStatusLabel, movieStatusOptions } from "@/constants/mediaStatus";
+import { useToastNotice } from "@/composables/useToastNotice";
 import { resolveErrorMessage } from "@/utils/errors";
 import {
   normalizeCastMembers,
@@ -64,7 +66,6 @@ const isEditing = ref(false);
 const saving = ref(false);
 const deleting = ref(false);
 const saveError = ref("");
-const saveMessage = ref("");
 const deleteError = ref("");
 const comparedRemoteId = ref<number | null>(null);
 const checkingRemoteDiff = ref(false);
@@ -82,6 +83,7 @@ const deleteConfirmModalVisible = ref(false);
 const genreOptions = ref<GenreOption[]>([]);
 const genreOptionsLoaded = ref(false);
 const genreKeyword = ref("");
+const { toastVisible, toastText, toastTone, showToastNotice, closeToastNotice } = useToastNotice();
 let loadReqSeq = 0;
 let creditsReqSeq = 0;
 let cancelDeferredLoads: (() => void) | null = null;
@@ -233,7 +235,6 @@ function enterEditMode() {
   resetEditForm(detail.value);
   genreKeyword.value = "";
   saveError.value = "";
-  saveMessage.value = "";
   isEditing.value = true;
   if (!genreOptionsLoaded.value) {
     void loadGenreOptions();
@@ -539,7 +540,6 @@ async function saveMovieChanges() {
 
   saving.value = true;
   saveError.value = "";
-  saveMessage.value = "";
   try {
     const payload: Record<string, unknown> = {
       title: editForm.value.title.trim(),
@@ -568,7 +568,7 @@ async function saveMovieChanges() {
     }
 
     await updateMovie(movieId.value, payload);
-    saveMessage.value = "已保存到本地数据库";
+    showToastNotice("已保存到本地数据库");
     isEditing.value = false;
     comparedRemoteId.value = null;
     if (tmdbChanged && nextTmdbID !== undefined) {
@@ -650,9 +650,9 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="mt-3 flex flex-wrap gap-2">
-            <span class="badge">⭐ {{ detail.vote_average?.toFixed(1) ?? "-" }}</span>
-            <span class="badge">📅 {{ detail.release_date ?? "-" }}</span>
-            <span v-if="detail.runtime" class="badge">⏱ {{ detail.runtime }} 分钟</span>
+            <span class="badge">评分 {{ detail.vote_average?.toFixed(1) ?? "-" }}</span>
+            <span class="badge">上映 {{ detail.release_date ?? "-" }}</span>
+            <span v-if="detail.runtime" class="badge">片长 {{ detail.runtime }} 分钟</span>
             <span class="badge">{{ formatStatusLabel(detail.status) }}</span>
           </div>
 
@@ -889,7 +889,6 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="mt-2">
-              <span v-if="saveMessage" class="text-xs text-green-700">{{ saveMessage }}</span>
               <span v-if="saveError" class="text-xs text-red-600">{{ saveError }}</span>
               <span v-if="deleteError" class="ml-2 text-xs text-red-600">{{ deleteError }}</span>
             </div>
@@ -933,9 +932,11 @@ onBeforeUnmount(() => {
   <div
     v-if="tmdbRiskModalVisible"
     class="fixed inset-0 z-[1300] flex items-center justify-center bg-black/45 p-4"
+    role="dialog"
+    aria-modal="true"
     @click.self="closeTmdbRiskModal(false)"
   >
-    <section class="panel-glass w-full max-w-md rounded-2xl p-5">
+    <section class="panel-glass w-full max-w-md rounded-lg p-5">
       <h3 class="text-base font-semibold text-amber-800">修改 TMDB ID 风险确认</h3>
       <p class="mt-2 text-sm text-black/75">
         你正在修改电影 TMDB ID：
@@ -959,9 +960,11 @@ onBeforeUnmount(() => {
   <div
     v-if="deleteConfirmModalVisible"
     class="fixed inset-0 z-[1300] flex items-center justify-center bg-black/45 p-4"
+    role="dialog"
+    aria-modal="true"
     @click.self="closeDeleteConfirmModal"
   >
-    <section class="panel-glass w-full max-w-md rounded-2xl p-5">
+    <section class="panel-glass w-full max-w-md rounded-lg p-5">
       <h3 class="text-base font-semibold text-red-700">删除本地数据确认</h3>
       <p class="mt-2 text-sm text-black/75">
         确认删除电影
@@ -978,4 +981,6 @@ onBeforeUnmount(() => {
       </div>
     </section>
   </div>
+
+  <ToastNotice :visible="toastVisible" :message="toastText" :tone="toastTone" @close="closeToastNotice" />
 </template>

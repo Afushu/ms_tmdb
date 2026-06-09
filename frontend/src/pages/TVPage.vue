@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { defineAsyncComponent } from "vue";
+import { defineAsyncComponent, watch } from "vue";
 import { tmdbImg } from "@/api/tmdb";
+import ToastNotice from "@/components/common/ToastNotice.vue";
 import { formatStatusLabel, formatTvTypeLabel, tvStatusOptions, tvTypeOptions } from "@/constants/mediaStatus";
+import { useToastNotice } from "@/composables/useToastNotice";
 import { useTVDetailPage } from "@/composables/useTVDetailPage";
 
 const TVRemoteDiffCard = defineAsyncComponent(() => import("@/components/tv/TVRemoteDiffCard.vue"));
@@ -102,6 +104,20 @@ const {
   loadTVCredits,
   confirmDeleteCurrentTV,
 } = useTVDetailPage();
+
+const { toastVisible, toastText, toastTone, showToastNotice, closeToastNotice } = useToastNotice();
+
+watch(saveMessage, (message) => {
+  if (message.trim()) {
+    showToastNotice(message);
+  }
+});
+
+watch(seasonLocalMessage, (message) => {
+  if (message.trim()) {
+    showToastNotice(message);
+  }
+});
 </script>
 
 <template>
@@ -154,8 +170,8 @@ const {
           </div>
 
           <div class="mt-3 flex flex-wrap gap-2">
-            <span class="badge">⭐ {{ detail.vote_average?.toFixed(1) ?? "-" }}</span>
-            <span class="badge">📅 {{ detail.first_air_date ?? "-" }}</span>
+            <span class="badge">评分 {{ detail.vote_average?.toFixed(1) ?? "-" }}</span>
+            <span class="badge">首播 {{ detail.first_air_date ?? "-" }}</span>
             <span v-if="detail.number_of_seasons" class="badge">
               {{ detail.number_of_seasons }} 季 · {{ detail.number_of_episodes }} 集
             </span>
@@ -198,7 +214,6 @@ const {
             :genre-keyword="genreKeyword"
             :filtered-genre-options="filteredGenreOptions"
             :genre-options="genreOptions"
-            :save-message="saveMessage"
             :save-error="saveError"
             :delete-error="deleteError"
             :tv-status-options="tvStatusOptions"
@@ -221,7 +236,6 @@ const {
             :season-editor-visible="seasonEditorVisible"
             :season-editor-mode="seasonEditorMode"
             :season-local-saved="seasonLocalSaved"
-            :season-local-message="seasonLocalMessage"
             :season-form-error="seasonFormError"
             :episode-form-error="episodeFormError"
             :season-form="seasonForm"
@@ -267,9 +281,11 @@ const {
   <div
     v-if="tmdbRiskModalVisible"
     class="fixed inset-0 z-[1300] flex items-center justify-center bg-black/45 p-4"
+    role="dialog"
+    aria-modal="true"
     @click.self="closeTmdbRiskModal(false)"
   >
-    <section class="panel-glass w-full max-w-md rounded-2xl p-5">
+    <section class="panel-glass w-full max-w-md rounded-lg p-5">
       <h3 class="text-base font-semibold text-amber-800">修改 TMDB ID 风险确认</h3>
       <p class="mt-2 text-sm text-black/75">
         你正在修改剧集 TMDB ID：
@@ -293,9 +309,11 @@ const {
   <div
     v-if="deleteConfirmModalVisible"
     class="fixed inset-0 z-[1300] flex items-center justify-center bg-black/45 p-4"
+    role="dialog"
+    aria-modal="true"
     @click.self="closeDeleteConfirmModal"
   >
-    <section class="panel-glass w-full max-w-md rounded-2xl p-5">
+    <section class="panel-glass w-full max-w-md rounded-lg p-5">
       <h3 class="text-base font-semibold text-red-700">删除本地数据确认</h3>
       <p class="mt-2 text-sm text-black/75">
         确认删除剧集
@@ -316,9 +334,11 @@ const {
   <div
     v-if="localDeleteConfirmModalVisible"
     class="fixed inset-0 z-[1300] flex items-center justify-center bg-black/45 p-4"
+    role="dialog"
+    aria-modal="true"
     @click.self="closeLocalDeleteConfirmModal(false)"
   >
-    <section class="panel-glass w-full max-w-md rounded-2xl p-5">
+    <section class="panel-glass w-full max-w-md rounded-lg p-5">
       <h3 class="text-base font-semibold text-red-700">{{ localDeleteConfirmTitle || "删除确认" }}</h3>
       <p class="mt-2 text-sm text-black/75">
         {{ localDeleteConfirmMessage }}
@@ -333,4 +353,6 @@ const {
       </div>
     </section>
   </div>
+
+  <ToastNotice :visible="toastVisible" :message="toastText" :tone="toastTone" @close="closeToastNotice" />
 </template>
