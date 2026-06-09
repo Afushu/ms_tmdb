@@ -303,6 +303,24 @@ export type AdminTVListItem = MediaSummary & {
   genre_names: string[];
 };
 
+export type AdminHomeMediaItem = {
+  media_type: "movie" | "tv";
+  tmdb_id: number;
+  title: string;
+  original_title: string;
+  poster_path: string;
+  vote_average: number;
+  air_date: string;
+  popularity: number;
+  visit_count: number;
+  created_at: string;
+};
+
+export type AdminHomeResp = {
+  latest: AdminHomeMediaItem[];
+  hot: AdminHomeMediaItem[];
+};
+
 export type AdminListResp<T> = {
   total: number;
   page: number;
@@ -332,6 +350,10 @@ export function compareTVRemote(id: number) {
 
 export function comparePersonRemote(id: number) {
   return http.get<AdminCompareResp>(`/api/admin/compare/person/${id}`);
+}
+
+export function getHomeDashboard() {
+  return http.get<AdminHomeResp>("/api/admin/home");
 }
 
 export function updateMovie(id: number, payload: Record<string, unknown>) {

@@ -168,6 +168,24 @@ type AdminCreateTvReq struct {
 	GenreNames       []string `json:"genre_names,optional"`
 }
 
+type AdminHomeMediaItem struct {
+	MediaType     string  `json:"media_type"` // movie 或 tv
+	TmdbId        int     `json:"tmdb_id"`
+	Title         string  `json:"title"`
+	OriginalTitle string  `json:"original_title"`
+	PosterPath    string  `json:"poster_path"`
+	VoteAverage   float64 `json:"vote_average"`
+	AirDate       string  `json:"air_date"`
+	Popularity    float64 `json:"popularity"`
+	VisitCount    int64   `json:"visit_count"`
+	CreatedAt     string  `json:"created_at"`
+}
+
+type AdminHomeResp struct {
+	Latest []AdminHomeMediaItem `json:"latest"`
+	Hot    []AdminHomeMediaItem `json:"hot"`
+}
+
 type AdminProxyAccessLogDetailReq struct {
 	Id int `path:"id"`
 }

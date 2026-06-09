@@ -73,6 +73,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 			{
 				Method:  http.MethodGet,
+				Path:    "/home",
+				Handler: admin.GetHomeDashboardHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
 				Path:    "/logs/access",
 				Handler: admin.ListProxyAccessLogsHandler(serverCtx),
 			},

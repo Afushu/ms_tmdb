@@ -21,14 +21,8 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: "/search",
-    component: () => import("@/pages/SearchPage.vue"),
-    meta: {
-      title: "全站搜索",
-      menuTitle: "搜索",
-      section: "工作台",
-      description: "按媒体类型检索 TMDB 数据，并快速进入详情页。",
-      order: 20,
-    },
+    redirect: (to) => ({ path: "/", query: to.query }),
+    meta: { hideMenu: true, hideTab: true },
   },
   {
     path: "/movie/:id",
@@ -59,7 +53,7 @@ const routes: RouteRecordRaw[] = [
       title: "人物详情",
       section: "媒体数据",
       description: "查看人物资料与关联作品信息。",
-      activeMenu: "/search",
+      activeMenu: "/",
       hideMenu: true,
     },
   },

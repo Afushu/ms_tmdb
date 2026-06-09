@@ -416,6 +416,24 @@ type (
 		DiffDetails             []AdminCompareFieldDetail `json:"diff_details"`
 		Message                 string                    `json:"message"`
 	}
+	// 管理接口 - 首页本地媒体项
+	AdminHomeMediaItem {
+		MediaType     string  `json:"media_type"` // movie 或 tv
+		TmdbId        int     `json:"tmdb_id"`
+		Title         string  `json:"title"`
+		OriginalTitle string  `json:"original_title"`
+		PosterPath    string  `json:"poster_path"`
+		VoteAverage   float64 `json:"vote_average"`
+		AirDate       string  `json:"air_date"`
+		Popularity    float64 `json:"popularity"`
+		VisitCount    int64   `json:"visit_count"`
+		CreatedAt     string  `json:"created_at"`
+	}
+	// 管理接口 - 首页本地看板响应
+	AdminHomeResp {
+		Latest []AdminHomeMediaItem `json:"latest"`
+		Hot    []AdminHomeMediaItem `json:"hot"`
+	}
 	// 类型列表请求
 	GenreListReq {
 		Language string `form:"language,optional"`
@@ -740,6 +758,9 @@ service tmdb-api {
 	group:  admin
 )
 service tmdb-api {
+	@handler GetHomeDashboard
+	get /home returns (AdminHomeResp)
+
 	@handler CreateMovie
 	post /movie (AdminCreateMovieReq) returns (AdminCreateResp)
 

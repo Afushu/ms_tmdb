@@ -210,6 +210,7 @@ select.field-control option:checked {
 
 .glass-pill-btn {
   @apply rounded px-4 py-2 text-sm transition;
+  border: 1px solid transparent;
   color: var(--text-muted);
 }
 
@@ -219,9 +220,10 @@ select.field-control option:checked {
 }
 
 .glass-pill-btn-active {
-  color: #fff;
-  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
-  box-shadow: 0 8px 18px rgba(43, 83, 104, 0.28);
+  color: var(--accent-strong);
+  background: var(--surface);
+  border-color: var(--accent-active-border);
+  box-shadow: 0 6px 14px var(--accent-ring);
 }
 
 .panel-glass {

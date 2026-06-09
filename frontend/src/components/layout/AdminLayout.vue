@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import VbenPage from "@/components/layout/VbenPage.vue";
+import { buildSearchQuery, readQueryString } from "@/utils/routeSearch";
 
 interface AdminMenuItem {
   order: number;
@@ -375,6 +376,7 @@ const preferencesOpen = ref(false);
 const showBackToTop = ref(false);
 const openedTabs = ref<AdminTab[]>([]);
 const preferences = reactive<AdminPreferences>({ ...defaultPreferences });
+const topbarSearchQuery = ref("");
 
 const menuItems = computed<AdminMenuItem[]>(() =>
   router
@@ -486,17 +488,35 @@ function trimTabs() {
   }
 }
 
+function removeDuplicateTabs(currentTab: AdminTab) {
+  const seenPaths = new Set<string>();
+  openedTabs.value = openedTabs.value.filter((tab) => {
+    if (tab.path === currentTab.path) {
+      if (tab.fullPath === currentTab.fullPath) {
+        seenPaths.add(tab.path);
+        return true;
+      }
+      return false;
+    }
+
+    if (seenPaths.has(tab.path)) return false;
+    seenPaths.add(tab.path);
+    return true;
+  });
+}
+
 function syncOpenedTab() {
   ensureHomeTab();
   const currentTab = buildCurrentTab();
   if (!currentTab) return;
 
-  const existedIndex = openedTabs.value.findIndex((tab) => tab.fullPath === currentTab.fullPath);
+  const existedIndex = openedTabs.value.findIndex((tab) => tab.path === currentTab.path);
   if (existedIndex >= 0) {
     openedTabs.value.splice(existedIndex, 1, currentTab);
   } else {
     openedTabs.value.push(currentTab);
   }
+  removeDuplicateTabs(currentTab);
   trimTabs();
 }
 
@@ -582,7 +602,6 @@ const menuIconPaths: Record<string, string[]> = {
   "/": ["M3 10.5 12 3l9 7.5", "M5 10v10h14V10", "M9 20v-6h6v6"],
   "/library": ["M4 6c0-1.1 3.6-2 8-2s8 .9 8 2-3.6 2-8 2-8-.9-8-2Z", "M4 6v6c0 1.1 3.6 2 8 2s8-.9 8-2V6", "M4 12v6c0 1.1 3.6 2 8 2s8-.9 8-2v-6"],
   "/logs": ["M7 4h10", "M7 9h10", "M7 14h6", "M5 20h14a2 2 0 0 0 2-2V3H3v15a2 2 0 0 0 2 2Z"],
-  "/search": ["M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z", "m21 21-4.35-4.35"],
   "/system-settings": ["M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z", "M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.07a2 2 0 0 1-2.83 2.83l-.07-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.07.06a2 2 0 1 1-2.83-2.83l.06-.07A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.88l-.06-.07a2 2 0 1 1 2.83-2.83l.07.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.07-.06a2 2 0 1 1 2.83 2.83l-.06.07A1.7 1.7 0 0 0 19.4 9c.36.63.99 1 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1Z"],
 };
 
@@ -590,11 +609,32 @@ function getMenuIconPaths(path: string) {
   return menuIconPaths[path] ?? ["M4 5h16", "M4 12h16", "M4 19h16"];
 }
 
+async function submitTopbarSearch() {
+  const trimmedQuery = topbarSearchQuery.value.trim();
+  if (!trimmedQuery) {
+    await router.push("/");
+    return;
+  }
+
+  await router.push({
+    path: "/",
+    query: buildSearchQuery("multi", trimmedQuery),
+  });
+}
+
 watch(
   () => route.fullPath,
   () => {
     syncOpenedTab();
     sidebarOpen.value = false;
+  },
+  { immediate: true },
+);
+
+watch(
+  () => route.query.q,
+  (value) => {
+    topbarSearchQuery.value = readQueryString(value);
   },
   { immediate: true },
 );
@@ -683,7 +723,17 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="admin-top-actions">
-          <RouterLink to="/search" class="admin-quick-link">搜索</RouterLink>
+          <form class="admin-top-search" role="search" @submit.prevent="submitTopbarSearch">
+            <input
+              v-model="topbarSearchQuery"
+              class="admin-top-search-input"
+              type="search"
+              placeholder="搜索电影、剧集、人物"
+            />
+            <button class="admin-top-search-btn" type="submit" aria-label="搜索">
+              <span class="admin-icon-search"></span>
+            </button>
+          </form>
           <button class="admin-preference-btn" type="button" aria-label="偏好设置" @click="preferencesOpen = true">
             <span class="admin-icon-gear"></span>
           </button>

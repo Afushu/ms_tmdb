@@ -1,37 +1,41 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
-import { getPopularMovies } from "@/api/movie";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter, type LocationQueryRaw } from "vue-router";
+import { getHomeDashboard, type AdminHomeMediaItem } from "@/api/admin";
 import { prefetchMediaDetail } from "@/api/prefetch";
 import { searchByType, type SearchType } from "@/api/search";
-import { getPopularTV } from "@/api/tv";
 import { tmdbImg } from "@/api/tmdb";
+import GlassSelect from "@/components/GlassSelect.vue";
 import SearchResultList from "@/components/SearchResultList.vue";
-import type { ApiErrorLike, MediaSummary, SearchResultItem } from "@/types/media";
+import type { ApiErrorLike, SearchResultItem } from "@/types/media";
+import {
+  buildSearchQuery,
+  normalizeSearchType,
+  queryValue,
+  readQueryString,
+  searchTypeOptions,
+} from "@/utils/routeSearch";
+
+const route = useRoute();
+const router = useRouter();
 
 const loading = ref(false);
 const error = ref("");
-const movies = ref<MediaSummary[]>([]);
-const tvSeries = ref<MediaSummary[]>([]);
-const searchQuery = ref("");
-const searchType = ref<SearchType>("multi");
+const latestMedia = ref<AdminHomeMediaItem[]>([]);
+const hotMedia = ref<AdminHomeMediaItem[]>([]);
+const searchQuery = ref(readQueryString(route.query.q));
+const searchType = ref<SearchType>(normalizeSearchType(route.query.type));
 const searching = ref(false);
 const searchError = ref("");
 const searchResults = ref<SearchResultItem[]>([]);
-const hasSearched = ref(false);
+let searchReqSeq = 0;
 
-const dashboardStats = computed(() => [
-  { label: "热门电影", value: loading.value ? "加载中" : `${movies.value.slice(0, 10).length} 条` },
-  { label: "热门剧集", value: loading.value ? "加载中" : `${tvSeries.value.slice(0, 10).length} 条` },
-  { label: "搜索结果", value: hasSearched.value ? `${searchResults.value.length} 条` : "待检索" },
-  { label: "数据状态", value: error.value ? "异常" : loading.value ? "刷新中" : "就绪" },
-]);
-
-const searchTypeOptions: ReadonlyArray<{ label: string; value: SearchType }> = [
-  { label: "综合", value: "multi" },
-  { label: "电影", value: "movie" },
-  { label: "剧集", value: "tv" },
-  { label: "人物", value: "person" },
-];
+const hasRouteQuery = computed(() => Boolean(readQueryString(route.query.q)));
+const resultSummary = computed(() => {
+  if (searching.value) return "检索中";
+  if (searchResults.value.length) return `${searchResults.value.length} 条匹配`;
+  return hasRouteQuery.value ? "暂无结果" : "等待检索";
+});
 
 function resolveErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === "object" && "message" in err) {
@@ -41,13 +45,29 @@ function resolveErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
+function displayTitle(item: AdminHomeMediaItem): string {
+  return item.title || item.original_title || `ID ${item.tmdb_id}`;
+}
+
+function mediaTypeLabel(mediaType: string): string {
+  return mediaType === "tv" ? "剧集" : "电影";
+}
+
+function mediaRoute(item: AdminHomeMediaItem): string {
+  return item.media_type === "tv" ? `/tv/${item.tmdb_id}` : `/movie/${item.tmdb_id}`;
+}
+
+function yearText(value: string): string {
+  return value ? value.slice(0, 4) : "";
+}
+
 async function loadData() {
   loading.value = true;
   error.value = "";
   try {
-    const [movieResp, tvResp] = await Promise.all([getPopularMovies(1), getPopularTV(1)]);
-    movies.value = movieResp.data?.results ?? [];
-    tvSeries.value = tvResp.data?.results ?? [];
+    const resp = await getHomeDashboard();
+    latestMedia.value = resp.data?.latest ?? [];
+    hotMedia.value = resp.data?.hot ?? [];
   } catch (err: unknown) {
     error.value = resolveErrorMessage(err, "加载失败");
   } finally {
@@ -55,33 +75,86 @@ async function loadData() {
   }
 }
 
-async function handleHomeSearch() {
-  const trimmedQuery = searchQuery.value.trim();
-  if (!trimmedQuery) {
+function isSameSearchQuery(nextQuery: LocationQueryRaw): boolean {
+  const keys = new Set([...Object.keys(route.query), ...Object.keys(nextQuery)]);
+  for (const key of keys) {
+    if (queryValue(route.query[key]) !== queryValue(nextQuery[key])) return false;
+  }
+  return true;
+}
+
+async function runSearch(targetType: SearchType, targetQuery: string) {
+  if (!targetQuery) {
+    searchReqSeq++;
     searchError.value = "请输入关键词";
-    hasSearched.value = false;
     searchResults.value = [];
+    searching.value = false;
     return;
   }
 
+  const requestSeq = ++searchReqSeq;
   searching.value = true;
   searchError.value = "";
-
+  searchResults.value = [];
   try {
-    const resp = await searchByType(searchType.value, trimmedQuery, 1);
-    searchResults.value = (resp.data?.results ?? []).slice(0, 12);
-    hasSearched.value = true;
+    const resp = await searchByType(targetType, targetQuery, 1);
+    if (requestSeq !== searchReqSeq) return;
+    searchResults.value = resp.data?.results ?? [];
   } catch (err: unknown) {
-    searchError.value = resolveErrorMessage(err, "搜索失败");
-    hasSearched.value = false;
+    if (requestSeq === searchReqSeq) {
+      searchError.value = resolveErrorMessage(err, "搜索失败");
+    }
   } finally {
-    searching.value = false;
+    if (requestSeq === searchReqSeq) {
+      searching.value = false;
+    }
   }
+}
+
+async function handleHomeSearch() {
+  const trimmedQuery = searchQuery.value.trim();
+  const targetType = searchType.value;
+  if (!trimmedQuery) {
+    searchReqSeq++;
+    searchError.value = "请输入关键词";
+    searchResults.value = [];
+    searching.value = false;
+    if (route.fullPath !== "/") {
+      await router.replace("/");
+    }
+    return;
+  }
+
+  const nextQuery = buildSearchQuery(targetType, trimmedQuery);
+  if (!isSameSearchQuery(nextQuery)) {
+    await router.replace({ path: "/", query: nextQuery });
+    return;
+  }
+  await runSearch(targetType, trimmedQuery);
 }
 
 function prefetchListItem(mediaType: "movie" | "tv", id: number | undefined) {
   prefetchMediaDetail(mediaType, Number(id));
 }
+
+watch(
+  () => route.query,
+  (routeQuery) => {
+    const nextQuery = readQueryString(routeQuery.q);
+    const nextType = normalizeSearchType(routeQuery.type);
+    searchQuery.value = nextQuery;
+    searchType.value = nextType;
+    if (!nextQuery) {
+      searchReqSeq++;
+      searchResults.value = [];
+      searchError.value = "";
+      searching.value = false;
+      return;
+    }
+    void runSearch(nextType, nextQuery);
+  },
+  { immediate: true },
+);
 
 onMounted(loadData);
 </script>
@@ -98,106 +171,108 @@ onMounted(loadData);
           {{ loading ? "刷新中..." : "刷新数据" }}
         </button>
       </div>
-      <div class="home-search-row">
+
+      <div class="search-toolbar-form mt-4">
+        <GlassSelect v-model="searchType" :options="searchTypeOptions" />
         <input
           v-model="searchQuery"
           type="text"
-          class="home-search-input"
+          class="field-control"
           placeholder="搜索电影、剧集、人物..."
           @keyup.enter="handleHomeSearch"
         />
-        <button class="home-search-btn" :disabled="searching" @click="handleHomeSearch">
+        <button class="btn-primary" :disabled="searching" @click="handleHomeSearch">
           {{ searching ? "检索中..." : "检索" }}
         </button>
       </div>
 
-      <div class="home-type-tabs">
-        <button
-          v-for="option in searchTypeOptions"
-          :key="option.value"
-          class="home-type-btn"
-          :class="{ 'home-type-btn-active': searchType === option.value }"
-          @click="searchType = option.value"
-        >
-          {{ option.label }}
-        </button>
-      </div>
-
-      <p v-if="searchError" class="mt-3 text-sm text-rose-200">{{ searchError }}</p>
-    </div>
-
-    <div class="home-stat-grid">
-      <article v-for="item in dashboardStats" :key="item.label" class="home-stat-card">
-        <span>{{ item.label }}</span>
-        <strong>{{ item.value }}</strong>
-      </article>
+      <p v-if="searchError" class="mt-3 text-sm text-red-600">{{ searchError }}</p>
     </div>
   </section>
 
-  <section v-if="hasSearched" class="card mt-4">
-    <div class="mb-3 flex items-center justify-between gap-2">
+  <section v-if="hasRouteQuery || searchResults.length || searchError" class="card mt-4">
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
       <h3 class="section-title !mb-0">搜索结果</h3>
-      <span class="badge search-meta-badge">
-        {{ searchResults.length ? `展示前 ${searchResults.length} 条` : "没有匹配结果" }}
-      </span>
+      <span class="badge">{{ resultSummary }}</span>
     </div>
-    <SearchResultList :items="searchResults" :fallback-type="searchType" empty-text="未找到结果，请尝试更换关键词。" />
+    <p v-if="searching" class="empty-state">检索中...</p>
+    <SearchResultList
+      v-else
+      :items="searchResults"
+      :fallback-type="searchType"
+      :limit="20"
+      empty-text="未找到结果，请尝试更换关键词。"
+    />
   </section>
 
   <section class="home-section-head">
     <div>
-      <p class="section-label">今日看点</p>
-      <h3 class="section-title !mb-0">热门内容</h3>
+      <p class="section-label">本地看板</p>
+      <h3 class="section-title !mb-0">数据库内容</h3>
     </div>
-    <span class="badge">TMDB Popular</span>
+    <span class="badge">Local Library</span>
   </section>
   <p v-if="error" class="mt-3 text-sm text-red-600">{{ error }}</p>
 
   <section class="mt-6">
-    <h3 class="section-title">热门电影</h3>
-    <div class="poster-grid">
+    <h3 class="section-title">最新入库</h3>
+    <div v-if="latestMedia.length" class="poster-grid">
       <RouterLink
-        v-for="item in movies.slice(0, 10)"
-        :key="item.id"
-        :to="`/movie/${item.id}`"
+        v-for="item in latestMedia"
+        :key="`${item.media_type}-${item.tmdb_id}`"
+        :to="mediaRoute(item)"
         class="poster-card"
-        @mouseenter="prefetchListItem('movie', item.id)"
-        @focus="prefetchListItem('movie', item.id)"
-        @touchstart.passive="prefetchListItem('movie', item.id)"
+        @mouseenter="prefetchListItem(item.media_type, item.tmdb_id)"
+        @focus="prefetchListItem(item.media_type, item.tmdb_id)"
+        @touchstart.passive="prefetchListItem(item.media_type, item.tmdb_id)"
       >
-        <img :src="tmdbImg(item.poster_path, 'w185')" :alt="item.title" class="poster-img" loading="lazy" />
+        <img
+          :src="tmdbImg(item.poster_path, 'w342')"
+          :srcset="`${tmdbImg(item.poster_path, 'w342')} 1x, ${tmdbImg(item.poster_path, 'w500')} 2x`"
+          :alt="displayTitle(item)"
+          class="poster-img"
+          loading="lazy"
+        />
         <div class="poster-info">
-          <p class="truncate text-sm font-medium">{{ item.title || item.original_title }}</p>
+          <p class="truncate text-sm font-medium">{{ displayTitle(item) }}</p>
           <p class="poster-meta">
-            <span class="poster-rating">评分 {{ item.vote_average?.toFixed(1) ?? "-" }}</span>
-            <span>{{ item.release_date?.slice(0, 4) ?? "" }}</span>
+            <span class="poster-rating">评分 {{ item.vote_average.toFixed(1) }}</span>
+            <span>{{ mediaTypeLabel(item.media_type) }} {{ yearText(item.air_date) }}</span>
           </p>
         </div>
       </RouterLink>
     </div>
+    <p v-else-if="!loading" class="empty-state">本地库暂无数据。</p>
   </section>
 
   <section class="mt-8">
-    <h3 class="section-title">热门剧集</h3>
-    <div class="poster-grid">
+    <h3 class="section-title">访问热度</h3>
+    <div v-if="hotMedia.length" class="poster-grid">
       <RouterLink
-        v-for="item in tvSeries.slice(0, 10)"
-        :key="item.id"
-        :to="`/tv/${item.id}`"
+        v-for="item in hotMedia"
+        :key="`${item.media_type}-${item.tmdb_id}`"
+        :to="mediaRoute(item)"
         class="poster-card"
-        @mouseenter="prefetchListItem('tv', item.id)"
-        @focus="prefetchListItem('tv', item.id)"
-        @touchstart.passive="prefetchListItem('tv', item.id)"
+        @mouseenter="prefetchListItem(item.media_type, item.tmdb_id)"
+        @focus="prefetchListItem(item.media_type, item.tmdb_id)"
+        @touchstart.passive="prefetchListItem(item.media_type, item.tmdb_id)"
       >
-        <img :src="tmdbImg(item.poster_path, 'w185')" :alt="item.name" class="poster-img" loading="lazy" />
+        <img
+          :src="tmdbImg(item.poster_path, 'w342')"
+          :srcset="`${tmdbImg(item.poster_path, 'w342')} 1x, ${tmdbImg(item.poster_path, 'w500')} 2x`"
+          :alt="displayTitle(item)"
+          class="poster-img"
+          loading="lazy"
+        />
         <div class="poster-info">
-          <p class="truncate text-sm font-medium">{{ item.name || item.original_name }}</p>
+          <p class="truncate text-sm font-medium">{{ displayTitle(item) }}</p>
           <p class="poster-meta">
-            <span class="poster-rating">评分 {{ item.vote_average?.toFixed(1) ?? "-" }}</span>
-            <span>{{ item.first_air_date?.slice(0, 4) ?? "" }}</span>
+            <span class="poster-rating">访问 {{ item.visit_count }} 次</span>
+            <span>{{ mediaTypeLabel(item.media_type) }} {{ yearText(item.air_date) }}</span>
           </p>
         </div>
       </RouterLink>
     </div>
+    <p v-else-if="!loading" class="empty-state">暂无本地访问热度记录。</p>
   </section>
 </template>

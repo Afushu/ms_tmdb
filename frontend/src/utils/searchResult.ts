@@ -21,7 +21,7 @@ export function getSearchResultRoute(item: SearchResultItem, fallbackType: Searc
   if (mediaType === "movie") return `/movie/${item.id}`;
   if (mediaType === "tv") return `/tv/${item.id}`;
   if (mediaType === "person") return `/person/${item.id}`;
-  return "/search";
+  return "/";
 }
 
 export function getSearchResultThumb(item: SearchResultItem, fallbackType: SearchType) {
