@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import GlassSelect from "@/components/GlassSelect.vue";
+import JsonFoldViewer from "@/components/common/JsonFoldViewer.vue";
 import ToastNotice from "@/components/common/ToastNotice.vue";
 import {
   clearProxyAccessLogs,
@@ -762,7 +763,7 @@ onMounted(() => {
                   <p class="settings-note">{{ formatBytes(activeDetail.response_body_bytes) }}</p>
                 </div>
               </div>
-              <pre class="settings-diff-pre logs-detail-response-body">{{ bodyText(activeDetail.response_body) }}</pre>
+              <JsonFoldViewer :value="activeDetail.response_body" />
             </div>
           </template>
         </div>
