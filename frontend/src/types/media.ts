@@ -39,7 +39,3 @@ export type SearchResultItem = {
   first_air_date?: string;
   overview?: string;
 };
-
-export type ApiErrorLike = {
-  message?: string;
-};

@@ -24,8 +24,9 @@ import { tmdbImg } from "@/api/tmdb";
 import { getMovieGenreList } from "@/api/movie";
 import { getTVGenreList } from "@/api/tv";
 import { movieStatusOptions, tvStatusOptions, tvTypeOptions } from "@/constants/mediaStatus";
-import type { ApiErrorLike } from "@/types/media";
+import { resolveErrorMessage } from "@/utils/errors";
 import { normalizeGenreOptions, type GenreOption } from "@/utils/mediaNormalizers";
+import { isSameQuery, readQueryString } from "@/utils/routeQuery";
 
 type ViewMode = "grid" | "table";
 type SearchMode = "contains" | "prefix";
@@ -74,11 +75,6 @@ const createTitle = computed(() => (activeTab.value === "movie" ? "新建本地�
 let previousBodyOverflow = "";
 let loadReqSeq = 0;
 
-function readQueryString(value: unknown): string {
-  if (Array.isArray(value)) return String(value[0] ?? "").trim();
-  return String(value ?? "").trim();
-}
-
 function normalizeTab(value: unknown): MediaTab {
   return readQueryString(value) === "tv" ? "tv" : "movie";
 }
@@ -106,30 +102,14 @@ function buildLibraryQuery(): LocationQueryRaw {
   return nextQuery;
 }
 
-function queryValue(value: unknown): string {
-  return Array.isArray(value) ? String(value[0] ?? "") : String(value ?? "");
-}
-
 function isSameLibraryQuery(nextQuery: LocationQueryRaw): boolean {
-  const keys = new Set([...Object.keys(route.query), ...Object.keys(nextQuery)]);
-  for (const key of keys) {
-    if (queryValue(route.query[key]) !== queryValue(nextQuery[key])) return false;
-  }
-  return true;
+  return isSameQuery(route.query, nextQuery);
 }
 
 function syncLibraryQuery() {
   const nextQuery = buildLibraryQuery();
   if (isSameLibraryQuery(nextQuery)) return;
   void router.replace({ path: "/library", query: nextQuery });
-}
-
-function resolveErrorMessage(err: unknown, fallback: string): string {
-  if (err && typeof err === "object" && "message" in err) {
-    const message = (err as ApiErrorLike).message;
-    if (typeof message === "string" && message.trim()) return message;
-  }
-  return fallback;
 }
 
 function normalizeListItem(item: unknown): LibraryListItem | null {

@@ -4,6 +4,7 @@ import type { AdminSyncMode, AdminSyncPayload, AdminSyncResp } from "@/api/admin
 import { syncMovie, syncPerson, syncTV } from "@/api/admin";
 import ToastNotice from "@/components/common/ToastNotice.vue";
 import { useToastNotice } from "@/composables/useToastNotice";
+import { resolveErrorMessage } from "@/utils/errors";
 
 const props = defineProps<{
   mediaType: "movie" | "tv" | "person";
@@ -100,16 +101,6 @@ function resolveFieldLabel(field: string) {
     known_for_department: "擅长领域",
   };
   return map[field] ?? field;
-}
-
-function resolveErrorMessage(err: unknown, fallback: string) {
-  if (err && typeof err === "object" && "message" in err) {
-    const message = (err as { message?: unknown }).message;
-    if (typeof message === "string" && message.trim()) {
-      return message;
-    }
-  }
-  return fallback;
 }
 
 async function executeSync(payload: AdminSyncPayload) {

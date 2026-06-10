@@ -7,14 +7,15 @@ import { searchByType, type SearchType } from "@/api/search";
 import { tmdbImg } from "@/api/tmdb";
 import GlassSelect from "@/components/GlassSelect.vue";
 import SearchResultList from "@/components/SearchResultList.vue";
-import type { ApiErrorLike, SearchResultItem } from "@/types/media";
+import type { SearchResultItem } from "@/types/media";
 import {
   buildSearchQuery,
   normalizeSearchType,
-  queryValue,
   readQueryString,
   searchTypeOptions,
 } from "@/utils/routeSearch";
+import { resolveErrorMessage } from "@/utils/errors";
+import { isSameQuery } from "@/utils/routeQuery";
 
 const route = useRoute();
 const router = useRouter();
@@ -36,14 +37,6 @@ const resultSummary = computed(() => {
   if (searchResults.value.length) return `${searchResults.value.length} 条匹配`;
   return hasRouteQuery.value ? "暂无结果" : "等待检索";
 });
-
-function resolveErrorMessage(err: unknown, fallback: string): string {
-  if (err && typeof err === "object" && "message" in err) {
-    const message = (err as ApiErrorLike).message;
-    if (typeof message === "string" && message.trim()) return message;
-  }
-  return fallback;
-}
 
 function displayTitle(item: AdminHomeMediaItem): string {
   return item.title || item.original_title || `ID ${item.tmdb_id}`;
@@ -76,11 +69,7 @@ async function loadData() {
 }
 
 function isSameSearchQuery(nextQuery: LocationQueryRaw): boolean {
-  const keys = new Set([...Object.keys(route.query), ...Object.keys(nextQuery)]);
-  for (const key of keys) {
-    if (queryValue(route.query[key]) !== queryValue(nextQuery[key])) return false;
-  }
-  return true;
+  return isSameQuery(route.query, nextQuery);
 }
 
 async function runSearch(targetType: SearchType, targetQuery: string) {
