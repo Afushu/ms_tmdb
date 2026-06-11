@@ -258,7 +258,7 @@ onBeforeUnmount(() => {
       </div>
       <div class="detail-layout">
         <div class="detail-poster">
-          <img :src="profileImg(detail.profile_path, 'w342')" :alt="detail.name" class="detail-poster-img" />
+          <img :src="profileImg(detail.profile_path, 'w780')" :alt="detail.name" class="detail-poster-img" />
         </div>
 
         <div class="detail-info">

@@ -519,6 +519,24 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
+[data-theme="msdark"] .tab-context-menu {
+  border-color: var(--border-muted);
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.36);
+}
+
+[data-theme="msdark"] .tab-context-item {
+  color: var(--text-main);
+}
+
+[data-theme="msdark"] .tab-context-item:hover {
+  background: var(--surface-muted);
+}
+
+[data-theme="msdark"] .tab-context-divider {
+  border-color: var(--border-muted);
+}
+
 [data-theme="msdark"] .admin-page-title,
 [data-theme="msdark"] .vben-page-title,
 [data-theme="msdark"] .admin-preference-header h2,

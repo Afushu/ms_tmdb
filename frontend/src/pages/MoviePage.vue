@@ -603,7 +603,7 @@ onBeforeUnmount(() => {
     <!-- 背景横幅 -->
     <section class="hero-banner hero-banner-detail">
       <img
-        :src="tmdbImg(detail.backdrop_path, 'w780')"
+        :src="tmdbImg(detail.backdrop_path, 'original')"
         :alt="detail.title || detail.original_title"
         class="hero-banner-media"
       />
@@ -623,7 +623,7 @@ onBeforeUnmount(() => {
       <div class="detail-layout">
         <!-- 海报 -->
         <div class="detail-poster">
-          <img :src="tmdbImg(detail.poster_path, 'w342')" :alt="detail.title" class="detail-poster-img" />
+          <img :src="tmdbImg(detail.poster_path, 'w780')" :alt="detail.title" class="detail-poster-img" />
         </div>
 
         <!-- 信息面板 -->

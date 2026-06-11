@@ -128,7 +128,7 @@ watch(seasonLocalMessage, (message) => {
     <!-- 背景横幅 -->
     <section class="hero-banner hero-banner-detail">
       <img
-        :src="tmdbImg(detail.backdrop_path, 'w780')"
+        :src="tmdbImg(detail.backdrop_path, 'original')"
         :alt="detail.name || detail.original_name"
         class="hero-banner-media"
       />
@@ -144,7 +144,7 @@ watch(seasonLocalMessage, (message) => {
     <section class="card mt-4">
       <div class="detail-layout">
         <div class="detail-poster">
-          <img :src="tmdbImg(detail.poster_path, 'w342')" :alt="detail.name" class="detail-poster-img" />
+          <img :src="tmdbImg(detail.poster_path, 'w780')" :alt="detail.name" class="detail-poster-img" />
         </div>
 
         <div class="detail-info">

@@ -237,6 +237,28 @@ func AutoMigrate(db *gorm.DB) error {
 	)
 }
 
+// TablesExist 检查所有模型对应的表是否均已创建。
+// 用于启动时跳过不必要的 AutoMigrate，避免大量 pg_catalog 慢查询。
+func TablesExist(db *gorm.DB) bool {
+	tables := []string{
+		"movies",
+		"movie_lang_snapshots",
+		"tv_series",
+		"tv_lang_snapshots",
+		"persons",
+		"person_lang_snapshots",
+		"auto_sync_execution_logs",
+		"proxy_access_logs",
+		"tmdb_request_logs",
+	}
+	for _, t := range tables {
+		if !db.Migrator().HasTable(t) {
+			return false
+		}
+	}
+	return true
+}
+
 // EnsureQueryIndexes 为常见列表查询补充索引
 func EnsureQueryIndexes(db *gorm.DB) error {
 	statements := []string{

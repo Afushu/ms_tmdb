@@ -53,7 +53,7 @@ const currentSection = computed(() =>
 const currentTitle = computed(() => String(route.meta.title ?? currentMenu.value?.title ?? "首页"));
 const currentDescription = computed(() => String(route.meta.description ?? ""));
 
-const { closeTab, openedTabs } = useAdminTabs({
+const { closeAllTabs, closeLeftTabs, closeOtherTabs, closeRightTabs, closeTab, openedTabs } = useAdminTabs({
   currentSection,
   currentTitle,
   hasRouteTitle,
@@ -144,6 +144,10 @@ onBeforeUnmount(() => {
         :current-full-path="route.fullPath"
         :tabs="openedTabs"
         @close="closeTab"
+        @close-all="closeAllTabs"
+        @close-left="closeLeftTabs"
+        @close-other="closeOtherTabs"
+        @close-right="closeRightTabs"
       />
 
       <main class="page-shell admin-content" :class="{ 'admin-content-compact': preferences.compact }">

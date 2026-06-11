@@ -90,6 +90,36 @@ export function useAdminTabs(options: UseAdminTabsOptions) {
     void router.push(nextTab?.fullPath ?? "/");
   }
 
+  function closeOtherTabs(target: AdminTab) {
+    openedTabs.value = openedTabs.value.filter((tab) => tab.path === "/" || tab.fullPath === target.fullPath);
+    if (route.fullPath !== target.fullPath) {
+      void router.push(target.fullPath);
+    }
+  }
+
+  function closeLeftTabs(target: AdminTab) {
+    const index = openedTabs.value.findIndex((tab) => tab.fullPath === target.fullPath);
+    if (index < 0) return;
+    openedTabs.value = openedTabs.value.filter((tab, i) => i >= index || tab.path === "/");
+    if (!openedTabs.value.some((tab) => tab.fullPath === route.fullPath)) {
+      void router.push(target.fullPath);
+    }
+  }
+
+  function closeRightTabs(target: AdminTab) {
+    const index = openedTabs.value.findIndex((tab) => tab.fullPath === target.fullPath);
+    if (index < 0) return;
+    openedTabs.value = openedTabs.value.filter((tab, i) => i <= index || tab.path === "/");
+    if (!openedTabs.value.some((tab) => tab.fullPath === route.fullPath)) {
+      void router.push(target.fullPath);
+    }
+  }
+
+  function closeAllTabs() {
+    openedTabs.value = openedTabs.value.filter((tab) => tab.path === "/");
+    void router.push("/");
+  }
+
   watch(
     () => route.fullPath,
     () => {
@@ -100,6 +130,10 @@ export function useAdminTabs(options: UseAdminTabsOptions) {
   );
 
   return {
+    closeAllTabs,
+    closeLeftTabs,
+    closeOtherTabs,
+    closeRightTabs,
     closeTab,
     openedTabs,
   };

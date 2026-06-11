@@ -516,6 +516,42 @@
   transform: rotate(-45deg);
 }
 
+/* ── Tab 右键菜单 ── */
+
+.tab-context-menu {
+  position: fixed;
+  z-index: 9999;
+  min-width: 140px;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border-muted);
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+
+.tab-context-item {
+  display: block;
+  width: 100%;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #344054;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.tab-context-item:hover {
+  background: #f2f4f7;
+}
+
+.tab-context-divider {
+  margin: 4px 8px;
+  border-top: 1px solid #e4e7ec;
+}
+
 .admin-content {
   min-height: calc(100vh - var(--header-height) - var(--tabbar-height));
   padding-top: 20px;
