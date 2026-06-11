@@ -113,6 +113,7 @@ async function loadAccessLogs(page = accessPage.value) {
     accessPageSize.value = normalizeNumber(Number(data.page_size) || accessPageSize.value, 1, 100);
     accessLoaded.value = true;
   } catch {
+    // 错误已由全局请求拦截器提示，这里保留当前日志列表。
   } finally {
     accessLoading.value = false;
   }
@@ -135,6 +136,7 @@ async function loadTmdbLogs(page = tmdbPage.value) {
     tmdbPageSize.value = normalizeNumber(Number(data.page_size) || tmdbPageSize.value, 1, 100);
     tmdbLoaded.value = true;
   } catch {
+    // 错误已由全局请求拦截器提示，这里保留当前日志列表。
   } finally {
     tmdbLoading.value = false;
   }
@@ -205,6 +207,7 @@ async function openAccessDetail(item: AdminProxyAccessLogItem) {
     const resp = await getProxyAccessLogDetail(item.id);
     accessDetail.value = resp.data;
   } catch {
+    // 错误已由全局请求拦截器提示，这里只关闭详情加载态。
   } finally {
     detailLoading.value = false;
   }
@@ -220,6 +223,7 @@ async function openTmdbDetail(item: AdminTmdbRequestLogItem) {
     const resp = await getTmdbRequestLogDetail(item.id);
     tmdbDetail.value = resp.data;
   } catch {
+    // 错误已由全局请求拦截器提示，这里只关闭详情加载态。
   } finally {
     detailLoading.value = false;
   }
@@ -254,6 +258,7 @@ async function clearCurrentLogs() {
       closeDetail();
       clearConfirmVisible.value = false;
     } catch {
+      // 错误已由全局请求拦截器提示，这里只恢复清空状态。
     } finally {
       accessClearing.value = false;
     }
@@ -269,6 +274,7 @@ async function clearCurrentLogs() {
     closeDetail();
     clearConfirmVisible.value = false;
   } catch {
+    // 错误已由全局请求拦截器提示，这里只恢复清空状态。
   } finally {
     tmdbClearing.value = false;
   }

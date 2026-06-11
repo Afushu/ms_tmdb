@@ -1025,7 +1025,7 @@ export function useTVDetailPage() {
       }
       cacheSeasonDetail(seasonNumber, toPlainRecord(resp.data), false);
       applyCachedSeasonDetail(seasonNumber, seasonDetailCache.get(seasonNumber)!);
-    } catch (err: unknown) {
+    } catch {
       if (requestSeq !== seasonDetailReqSeq) {
         return;
       }
@@ -1277,7 +1277,7 @@ export function useTVDetailPage() {
         await checkRemoteDiffAndPrompt();
       }
       scheduleDeferredLoadsForDetail();
-    } catch (err: unknown) {
+    } catch {
       if (requestSeq === loadReqSeq) {
         clearSelectedSeasonState();
       }

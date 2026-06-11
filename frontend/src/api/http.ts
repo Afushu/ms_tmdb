@@ -17,6 +17,32 @@ function friendlyMessage(status?: number, raw?: string): string {
   return "请求失败，请稍后再试";
 }
 
+function messageText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+/** 优先读取后端业务错误消息，避免把可操作提示泛化成“服务器异常”。 */
+function backendMessage(data: unknown): string {
+  if (!data) return "";
+  if (typeof data === "string") {
+    try {
+      return backendMessage(JSON.parse(data) as unknown);
+    } catch {
+      const text = data.trim();
+      return /^<!doctype|^<html/i.test(text) ? "" : text;
+    }
+  }
+  if (typeof data !== "object") return "";
+
+  const payload = data as Record<string, unknown>;
+  const candidates = [payload.msg, payload.message, payload.status_message, payload.error];
+  for (const item of candidates) {
+    const text = messageText(item);
+    if (text) return text;
+  }
+  return "";
+}
+
 const http = axios.create({
   baseURL: "/",
   timeout: 15000,
@@ -26,17 +52,8 @@ http.interceptors.response.use(
   (response) => response,
   (error) => {
     const data = error?.response?.data;
-    const raw =
-      (typeof data === "string" ? data : "") ||
-      data?.status_message ||
-      data?.error ||
-      data?.message ||
-      data?.msg ||
-      error?.message ||
-      "";
-
     const status: number | undefined = error?.response?.status;
-    const msg = friendlyMessage(status, raw);
+    const msg = backendMessage(data) || friendlyMessage(status, error?.message || "");
 
     // 全局居中 toast 提示
     showGlobalToast(msg, "error");

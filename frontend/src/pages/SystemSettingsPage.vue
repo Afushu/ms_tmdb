@@ -417,7 +417,7 @@ async function saveProxySettings() {
     proxyTimeoutRestartRequired.value = !!data.timeout_restart_required;
     showToastNotice(
       proxyTimeoutRestartRequired.value
-        ? "网络配置已保存，请重启后端使请求超时生效"
+        ? "网络配置已保存，TMDB 请求超时已即时生效，重启后端可同步外层请求超时"
         : proxyEnabled.value
           ? "代理配置已保存"
           : "代理已关闭，当前为直连",
@@ -580,10 +580,10 @@ onMounted(reloadAll);
             class="field-control mt-1 w-full text-sm"
             :disabled="proxySaving"
           />
-          <span>可设置 1000-300000 毫秒；保存会写入配置文件，重启后真正生效。</span>
+          <span>可设置 1000-300000 毫秒；TMDB 请求超时保存后即时生效，外层请求处理超时重启后同步。</span>
         </label>
         <p v-if="proxyTimeoutRestartRequired" class="settings-feedback settings-feedback-warning">
-          当前请求超时配置已变更，重启后端后生效。
+          当前外层请求处理超时配置已变更，重启后端后完全同步。
         </p>
 
         <div class="settings-card-actions">

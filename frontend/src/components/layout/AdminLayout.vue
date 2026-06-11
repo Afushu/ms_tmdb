@@ -178,9 +178,8 @@ onBeforeUnmount(() => {
     <button v-if="showBackToTop" class="back-top-btn" type="button" aria-label="返回顶部" @click="scrollToTop"></button>
 
     <Transition name="admin-global-loading-fade">
-      <div v-if="globalPageLoading" class="admin-global-loading" role="status" aria-live="polite">
+      <div v-if="globalPageLoading" class="admin-global-loading" role="status" aria-live="polite" aria-label="页面加载中">
         <div class="admin-global-loading-loader" aria-hidden="true"></div>
-        <div class="admin-global-loading-title">媒体数据管理</div>
       </div>
     </Transition>
   </div>

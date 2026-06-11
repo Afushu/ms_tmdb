@@ -58,6 +58,7 @@ func (l *UpdateProxySettingsLogic) UpdateProxySettings(req *types.AdminProxyReq)
 	if err := l.svcCtx.TmdbClient.SetProxy(proxyURL); err != nil {
 		return nil, err
 	}
+	l.svcCtx.TmdbClient.SetTimeoutMillis(timeout)
 	l.svcCtx.ProxyService.SetLocalWriteEnabled(localWriteEnabled)
 	l.svcCtx.Config.Tmdb.LocalWriteEnabled = localWriteEnabled
 	l.svcCtx.Config.Timeout = timeout
@@ -69,6 +70,7 @@ func (l *UpdateProxySettingsLogic) UpdateProxySettings(req *types.AdminProxyReq)
 	if err := writeProxySettingsToConfigFile(configFile, proxyURL, localWriteEnabled, req.Timeout); err != nil {
 		// 配置写入失败时回滚当前进程设置，避免“显示成功但重启丢失”。
 		_ = l.svcCtx.TmdbClient.SetProxy(oldProxyURL)
+		l.svcCtx.TmdbClient.SetTimeoutMillis(oldTimeout)
 		l.svcCtx.ProxyService.SetLocalWriteEnabled(oldLocalWriteEnabled)
 		l.svcCtx.Config.Tmdb.LocalWriteEnabled = oldLocalWriteEnabled
 		l.svcCtx.Config.Timeout = oldTimeout

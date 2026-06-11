@@ -50,6 +50,7 @@ type Client struct {
 	language   string
 	httpClient *http.Client
 	proxyURL   string
+	timeout    time.Duration
 	mu         sync.RWMutex
 
 	// 简单令牌桶限流
@@ -69,6 +70,7 @@ func NewClient(apiKey, baseURL, defaultLanguage string, rateLimit int, proxyURL 
 		apiKey:   apiKey,
 		baseURL:  baseURL,
 		language: defaultLanguage,
+		timeout:  defaultHTTPTimeout,
 		httpClient: &http.Client{
 			Timeout:   defaultHTTPTimeout,
 			Transport: newTransport(""),
@@ -123,16 +125,40 @@ func (c *Client) SetProxy(proxyURL string) error {
 		transport = newTransport(trimmed)
 	}
 
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	timeout := c.timeout
+	if timeout <= 0 {
+		timeout = defaultHTTPTimeout
+	}
 	httpClient := &http.Client{
-		Timeout:   defaultHTTPTimeout,
+		Timeout:   timeout,
 		Transport: transport,
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	c.httpClient = httpClient
 	c.proxyURL = trimmed
 	return nil
+}
+
+// SetTimeoutMillis 更新 TMDB 请求超时时间，单位为毫秒。
+func (c *Client) SetTimeoutMillis(timeoutMillis int64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.timeout = normalizeHTTPTimeout(timeoutMillis)
+	c.httpClient = &http.Client{
+		Timeout:   c.timeout,
+		Transport: newTransport(c.proxyURL),
+	}
+}
+
+func normalizeHTTPTimeout(timeoutMillis int64) time.Duration {
+	if timeoutMillis <= 0 {
+		return defaultHTTPTimeout
+	}
+	return time.Duration(timeoutMillis) * time.Millisecond
 }
 
 func newTransport(proxyURL string) *http.Transport {

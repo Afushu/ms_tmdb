@@ -1,9 +1,13 @@
 package model
 
 import (
+	"crypto/sha1"
+	"database/sql"
 	"database/sql/driver"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"time"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -227,23 +231,97 @@ type TmdbRequestLog struct {
 
 // AutoMigrate 自动建表迁移
 func AutoMigrate(db *gorm.DB) error {
-	return db.AutoMigrate(
-		&Movie{},
-		&MovieLangSnapshot{},
-		&TVSeries{},
-		&TVLangSnapshot{},
-		&Person{},
-		&PersonLangSnapshot{},
-		&AutoSyncExecutionLog{},
-		&ProxyAccessLog{},
-		&TmdbRequestLog{},
-	)
+	return db.AutoMigrate(autoMigrateModels()...)
 }
 
-// TablesExist 检查所有模型对应的表是否均已创建。
-// 用于启动时跳过不必要的 AutoMigrate，避免大量 pg_catalog 慢查询。
-func TablesExist(db *gorm.DB) bool {
-	models := []interface{}{
+// RunStartupMigrations 按版本执行启动迁移，避免每次启动都触发 GORM 元数据扫描。
+func RunStartupMigrations(db *gorm.DB) error {
+	if err := ensureSchemaMigrationTable(db); err != nil {
+		return err
+	}
+
+	migrations := []startupMigration{
+		{
+			key:     schemaMigrationKey,
+			version: autoMigrateSchemaVersion(),
+			run:     AutoMigrate,
+		},
+		{
+			key:     startupCleanupMigrationKey,
+			version: startupCleanupSchemaVersion(),
+			run:     CleanupSoftDeletedRows,
+		},
+		{
+			key:     queryIndexMigrationKey,
+			version: queryIndexSchemaVersion(),
+			run:     EnsureQueryIndexes,
+		},
+	}
+
+	for _, migration := range migrations {
+		if err := runStartupMigrationIfNeeded(db, migration); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+type startupMigration struct {
+	key     string
+	version string
+	run     func(*gorm.DB) error
+}
+
+const (
+	schemaMigrationKey         = "gorm_auto_migrate"
+	startupCleanupMigrationKey = "startup_cleanup_soft_deleted"
+	queryIndexMigrationKey     = "query_indexes"
+)
+
+var errStartupMigrationDeferred = errors.New("启动迁移部分依赖暂不可用")
+
+func runStartupMigrationIfNeeded(db *gorm.DB, migration startupMigration) error {
+	storedVersion, err := readStoredMigrationVersion(db, migration.key)
+	if err != nil {
+		return err
+	}
+	if storedVersion == migration.version {
+		return nil
+	}
+
+	logx.Infof("检测到数据库启动迁移 %s 版本变化，开始执行", migration.key)
+	if err := migration.run(db); err != nil {
+		if errors.Is(err, errStartupMigrationDeferred) {
+			logx.Infof("数据库启动迁移 %s 未完全完成，将在下次启动重试: %v", migration.key, err)
+			return nil
+		}
+		return err
+	}
+	return writeStoredMigrationVersion(db, migration.key, migration.version)
+}
+
+func readStoredMigrationVersion(db *gorm.DB, key string) (string, error) {
+	var version string
+	err := db.Raw("SELECT version FROM schema_migrations WHERE key = ?", key).Row().Scan(&version)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return version, err
+}
+
+func writeStoredMigrationVersion(db *gorm.DB, key string, version string) error {
+	return db.Exec(
+		`INSERT INTO schema_migrations (key, version, migrated_at)
+VALUES (?, ?, NOW())
+ON CONFLICT (key) DO UPDATE SET version = EXCLUDED.version, migrated_at = EXCLUDED.migrated_at`,
+		key,
+		version,
+	).Error
+}
+
+func autoMigrateModels() []interface{} {
+	return []interface{}{
 		&Movie{},
 		&MovieLangSnapshot{},
 		&TVSeries{},
@@ -254,27 +332,79 @@ func TablesExist(db *gorm.DB) bool {
 		&ProxyAccessLog{},
 		&TmdbRequestLog{},
 	}
-	for _, modelValue := range models {
-		if !db.Migrator().HasTable(modelValue) {
-			return false
+}
+
+func ensureSchemaMigrationTable(db *gorm.DB) error {
+	return db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+	key varchar(64) PRIMARY KEY,
+	version varchar(64) NOT NULL,
+	migrated_at timestamptz NOT NULL
+)`).Error
+}
+
+func autoMigrateSchemaVersion() string {
+	parts := []string{"auto_migrate_v1"}
+	for _, modelValue := range autoMigrateModels() {
+		modelType := reflect.TypeOf(modelValue)
+		if modelType.Kind() == reflect.Pointer {
+			modelType = modelType.Elem()
+		}
+		parts = append(parts, modelType.PkgPath(), modelType.Name())
+		for i := 0; i < modelType.NumField(); i++ {
+			field := modelType.Field(i)
+			parts = append(parts, field.Name, field.Type.String(), string(field.Tag))
 		}
 	}
-	return true
+	return hashStrings(parts...)
+}
+
+func hashStrings(parts ...string) string {
+	h := sha1.New()
+	for _, part := range parts {
+		_, _ = h.Write([]byte(part))
+		_, _ = h.Write([]byte{0})
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // EnsureQueryIndexes 为常见列表查询补充索引
 func EnsureQueryIndexes(db *gorm.DB) error {
-	schemaStatements := []string{
-		"ALTER TABLE proxy_access_logs ADD COLUMN IF NOT EXISTS media_type varchar(16)",
-		"ALTER TABLE proxy_access_logs ADD COLUMN IF NOT EXISTS tmdb_id bigint",
-	}
-	for _, stmt := range schemaStatements {
+	for _, stmt := range queryIndexSchemaStatements() {
 		if err := db.Exec(stmt).Error; err != nil {
 			return err
 		}
 	}
 
-	statements := []string{
+	for _, stmt := range queryIndexStatements() {
+		if err := db.Exec(stmt).Error; err != nil {
+			return err
+		}
+	}
+
+	// 日志列表关键词为 col ILIKE '%x%' OR ...，需 pg_trgm GIN 索引才能避免 10 万级以上全表扫描与超时。
+	if err := db.Exec("CREATE EXTENSION IF NOT EXISTS pg_trgm").Error; err != nil {
+		logx.Infof("无法启用 pg_trgm（缺权限时可忽略），日志关键词查询可能较慢，并将在下次启动重试: %v", err)
+		return errors.Join(errStartupMigrationDeferred, err)
+	}
+
+	for _, stmt := range queryIndexTrgmStatements() {
+		if err := db.Exec(stmt).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func queryIndexSchemaStatements() []string {
+	return []string{
+		"ALTER TABLE proxy_access_logs ADD COLUMN IF NOT EXISTS media_type varchar(16)",
+		"ALTER TABLE proxy_access_logs ADD COLUMN IF NOT EXISTS tmdb_id bigint",
+	}
+}
+
+func queryIndexStatements() []string {
+	return []string{
 		"CREATE INDEX IF NOT EXISTS idx_movies_live_popularity_desc ON movies (popularity DESC) WHERE deleted_at IS NULL",
 		"CREATE INDEX IF NOT EXISTS idx_tv_series_live_popularity_desc ON tv_series (popularity DESC) WHERE deleted_at IS NULL",
 		"CREATE INDEX IF NOT EXISTS idx_movies_live_created_tmdb_desc ON movies (created_at DESC, tmdb_id DESC) WHERE deleted_at IS NULL",
@@ -295,20 +425,10 @@ func EnsureQueryIndexes(db *gorm.DB) error {
 		"CREATE INDEX IF NOT EXISTS idx_auto_sync_logs_live_id_desc ON auto_sync_execution_logs (id DESC) WHERE deleted_at IS NULL",
 		"CREATE INDEX IF NOT EXISTS idx_auto_sync_logs_live_status_id_desc ON auto_sync_execution_logs (status, id DESC) WHERE deleted_at IS NULL",
 	}
+}
 
-	for _, stmt := range statements {
-		if err := db.Exec(stmt).Error; err != nil {
-			return err
-		}
-	}
-
-	// 日志列表关键词为 col ILIKE '%x%' OR ...，需 pg_trgm GIN 索引才能避免 10 万级以上全表扫描与超时。
-	if err := db.Exec("CREATE EXTENSION IF NOT EXISTS pg_trgm").Error; err != nil {
-		logx.Infof("无法启用 pg_trgm（缺权限时可忽略），日志关键词查询可能较慢: %v", err)
-		return nil
-	}
-
-	trgmIndexes := []string{
+func queryIndexTrgmStatements() []string {
+	return []string{
 		"CREATE INDEX IF NOT EXISTS idx_movies_title_trgm ON movies USING gin (title gin_trgm_ops)",
 		"CREATE INDEX IF NOT EXISTS idx_movies_original_title_trgm ON movies USING gin (original_title gin_trgm_ops)",
 		"CREATE INDEX IF NOT EXISTS idx_tv_series_name_trgm ON tv_series USING gin (name gin_trgm_ops)",
@@ -325,11 +445,12 @@ func EnsureQueryIndexes(db *gorm.DB) error {
 		"CREATE INDEX IF NOT EXISTS idx_tmdb_request_logs_url_trgm ON tmdb_request_logs USING gin (url gin_trgm_ops)",
 		"CREATE INDEX IF NOT EXISTS idx_tmdb_request_logs_err_trgm ON tmdb_request_logs USING gin (error_message gin_trgm_ops)",
 	}
-	for _, stmt := range trgmIndexes {
-		if err := db.Exec(stmt).Error; err != nil {
-			return err
-		}
-	}
+}
 
-	return nil
+func queryIndexSchemaVersion() string {
+	parts := []string{"query_indexes_v1", "CREATE EXTENSION IF NOT EXISTS pg_trgm"}
+	parts = append(parts, queryIndexSchemaStatements()...)
+	parts = append(parts, queryIndexStatements()...)
+	parts = append(parts, queryIndexTrgmStatements()...)
+	return hashStrings(parts...)
 }

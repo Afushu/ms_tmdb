@@ -158,7 +158,7 @@ async function loadPersonCombinedCredits(force = false) {
     }
     topCreditItems.value = normalizeCreditItems(resp.data);
     creditsLoaded.value = true;
-  } catch (err: unknown) {
+  } catch {
     if (requestSeq !== creditsReqSeq || targetId !== personId.value) {
       return;
     }
@@ -184,7 +184,7 @@ async function loadPersonImages(force = false) {
     }
     photoProfiles.value = normalizeImageItems(resp.data).slice(0, 6);
     photosLoaded.value = true;
-  } catch (err: unknown) {
+  } catch {
     if (requestSeq !== photosReqSeq || targetId !== personId.value) {
       return;
     }
@@ -212,6 +212,7 @@ async function loadData() {
     detail.value = resp.data;
     scheduleDeferredLoadsForDetail();
   } catch {
+    // 错误已由全局请求拦截器提示，这里只恢复详情加载状态。
   } finally {
     if (requestSeq === detailReqSeq) {
       loading.value = false;

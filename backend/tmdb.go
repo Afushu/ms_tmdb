@@ -12,6 +12,7 @@ import (
 	"ms_tmdb/internal/logging"
 	adminlogic "ms_tmdb/internal/logic/admin"
 	"ms_tmdb/internal/middleware"
+	"ms_tmdb/internal/response"
 	"ms_tmdb/internal/svc"
 
 	"github.com/zeromicro/go-zero/core/conf"
@@ -31,6 +32,7 @@ func main() {
 
 	server := rest.MustNewServer(c.RestConf)
 	logging.SetupConsoleWriter(c.Log.Mode)
+	response.RegisterErrorHandler()
 	defer server.Stop()
 
 	ctx := svc.NewServiceContext(c)

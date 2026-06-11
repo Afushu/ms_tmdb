@@ -219,10 +219,6 @@
   background-color: #0d0d10;
 }
 
-[data-theme="msdark"] .admin-global-loading-title {
-  color: #fff;
-}
-
 [data-theme="mslight"] .admin-topbar,
 [data-theme="mslight"] .admin-tabs,
 [data-theme="mslight"] .card {

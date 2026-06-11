@@ -22,6 +22,7 @@ async function loadSettings() {
     proxyURL.value = data.proxy_url ?? "";
     enabled.value = !!data.enabled;
   } catch {
+    // 错误已由全局请求拦截器提示，这里只恢复加载状态。
   } finally {
     loading.value = false;
   }
@@ -37,6 +38,7 @@ async function saveSettings() {
     enabled.value = !!data.enabled;
     showToastNotice(enabled.value ? "代理已启用" : "代理已关闭，当前为直连", enabled.value ? "success" : "info");
   } catch {
+    // 错误已由全局请求拦截器提示，这里只恢复保存状态。
   } finally {
     saving.value = false;
   }

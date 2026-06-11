@@ -29,17 +29,8 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		logx.Must(err)
 	}
 
-	// 自动建表迁移（表已存在时跳过，避免 pg_catalog 慢查询）
-	if !model.TablesExist(db) {
-		if err := model.AutoMigrate(db); err != nil {
-			logx.Must(err)
-		}
-	}
-	// 启动时清理历史软删除残留数据（前端删除已改为物理删除）
-	if err := model.CleanupSoftDeletedRows(db); err != nil {
-		logx.Must(err)
-	}
-	if err := model.EnsureQueryIndexes(db); err != nil {
+	// 仅在模型、索引或历史清理 SQL 变化时执行启动迁移，避免每次启动都触发慢元数据查询。
+	if err := model.RunStartupMigrations(db); err != nil {
 		logx.Must(err)
 	}
 
@@ -51,6 +42,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		c.Tmdb.RateLimit,
 		c.Tmdb.ProxyURL,
 	)
+	client.SetTimeoutMillis(c.Timeout)
 	logService := service.NewRequestLogService(db, c.Tmdb.Log)
 	client.SetRequestLogger(func(ctx context.Context, entry tmdbclient.RequestLogEntry) {
 		err := logService.WriteTmdbRequest(ctx, service.TmdbRequestEntry{

@@ -27,6 +27,10 @@ func CleanupSoftDeletedRows(db *gorm.DB) error {
 	})
 }
 
+func startupCleanupSchemaVersion() string {
+	return hashStrings("startup_cleanup_soft_deleted_v1", startupCleanupSoftDeletedSQL)
+}
+
 func splitSQLStatements(script string) []string {
 	if strings.TrimSpace(script) == "" {
 		return nil

@@ -58,6 +58,9 @@ jobs:
           SKIP_SIMPLE_GIT_HOOKS: 1
         run: pnpm -C frontend install --frozen-lockfile
 
+      - name: Lint frontend
+        run: pnpm -C frontend run lint
+
       - name: Prepare Docker build version
         id: app-version
         run: |
@@ -92,6 +95,11 @@ jobs:
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
+
+      - name: Test backend
+        if: matrix.arch == 'amd64'
+        working-directory: backend
+        run: go test ./...
 
       - name: Build backend (${{ matrix.arch }})
         env:

@@ -130,6 +130,7 @@ async function loadChangedFields() {
     selectedOverwriteFields.value = [...changedFields.value];
     syncMessage.value = data.message || `检测到 ${changedFields.value.length} 个变化字段`;
   } catch {
+    // 错误已由全局请求拦截器提示，这里只负责恢复加载状态。
   } finally {
     diffChecking.value = false;
   }
@@ -155,6 +156,7 @@ async function applySync() {
     showToastNotice(data.message || "同步完成");
     emit("synced");
   } catch {
+    // 错误已由全局请求拦截器提示，这里只负责恢复提交状态。
   } finally {
     syncing.value = false;
   }

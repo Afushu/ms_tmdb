@@ -410,10 +410,6 @@ export function deleteTVSeasonLocal(id: number, seasonNumber: number) {
   return http.delete<AdminTVSeasonLocalResp>(`/api/admin/tv/${id}/season/${seasonNumber}/local`);
 }
 
-export function listPeople(page = 1, pageSize = 20) {
-  return http.get("/api/admin/people", { params: { page, page_size: pageSize } });
-}
-
 export function getProxySettings() {
   return http.get<AdminProxyResp>("/api/admin/proxy");
 }

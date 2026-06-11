@@ -878,13 +878,6 @@
   background-color: #f4f7f9;
 }
 
-.admin-global-loading-title {
-  margin-top: 66px;
-  color: rgb(0 0 0 / 85%);
-  font-size: 28px;
-  font-weight: 600;
-}
-
 .admin-global-loading-loader {
   position: relative;
   width: 48px;
