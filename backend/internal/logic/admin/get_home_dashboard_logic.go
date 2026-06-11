@@ -138,12 +138,12 @@ LIMIT 10
 	return convertHomeMediaRows(rows), nil
 }
 
-// queryHotHomeMedia 从近 30 天代理访问日志中按结构化媒体字段聚合访问次数，最终只返回已入库内容。
+// queryHotHomeMedia 从近 30 天代理访问日志中按媒体目标聚合访问次数，最终只返回已入库内容。
 func (l *GetHomeDashboardLogic) queryHotHomeMedia() ([]types.AdminHomeMediaItem, error) {
 	var rows []homeMediaRow
 	if err := l.svcCtx.DB.WithContext(l.ctx).Raw(`
-WITH hit_counts AS (
-  SELECT media_type, tmdb_id, COUNT(*)::bigint AS visit_count
+WITH hit_sources AS (
+  SELECT media_type, tmdb_id
   FROM proxy_access_logs
   WHERE deleted_at IS NULL
     AND status_code >= 200
@@ -151,6 +151,26 @@ WITH hit_counts AS (
     AND created_at >= NOW() - INTERVAL '30 days'
     AND media_type IN ('movie', 'tv')
     AND tmdb_id <> 0
+  UNION ALL
+  SELECT
+    regexp_replace(path, '^/(api/v3|v3|3)/(movie|tv)/(-[0-9]+|[0-9]+).*$','\2') AS media_type,
+    regexp_replace(path, '^/(api/v3|v3|3)/(movie|tv)/(-[0-9]+|[0-9]+).*$','\3')::int AS tmdb_id
+  FROM proxy_access_logs
+  WHERE deleted_at IS NULL
+    AND status_code >= 200
+    AND status_code < 400
+    AND created_at >= NOW() - INTERVAL '30 days'
+    AND (
+      media_type IS NULL
+      OR media_type NOT IN ('movie', 'tv')
+      OR tmdb_id IS NULL
+      OR tmdb_id = 0
+    )
+    AND path ~ '^/(api/v3|v3|3)/(movie|tv)/(-[0-9]+|[0-9]+)($|/.*$)'
+),
+hit_counts AS (
+  SELECT media_type, tmdb_id, COUNT(*)::bigint AS visit_count
+  FROM hit_sources
   GROUP BY media_type, tmdb_id
 ),
 home_media AS (

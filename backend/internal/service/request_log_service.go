@@ -14,9 +14,12 @@ import (
 )
 
 const (
-	defaultRetentionDays  = 7
-	defaultBodyLimitBytes = 64 * 1024
-	defaultWriteTimeout   = 3 * time.Second
+	defaultRetentionDays    = 7
+	defaultBodyLimitBytes   = 64 * 1024
+	defaultWriteTimeout     = 3 * time.Second
+	defaultCleanupBatchSize = 500
+	proxyAccessLogTableName = "proxy_access_logs"
+	tmdbRequestLogTableName = "tmdb_request_logs"
 )
 
 // BodySnapshot 保存被截断后的正文与原始大小。
@@ -248,10 +251,32 @@ func (s *RequestLogService) CleanupExpired(ctx context.Context) error {
 	cutoff := time.Now().AddDate(0, 0, -retentionDays)
 
 	db := s.db.WithContext(withoutCancel(ctx))
-	if err := db.Unscoped().Where("created_at < ?", cutoff).Delete(&model.ProxyAccessLog{}).Error; err != nil {
+	if err := cleanupExpiredRequestLogTable(db, proxyAccessLogTableName, cutoff); err != nil {
 		return err
 	}
-	return db.Unscoped().Where("created_at < ?", cutoff).Delete(&model.TmdbRequestLog{}).Error
+	return cleanupExpiredRequestLogTable(db, tmdbRequestLogTableName, cutoff)
+}
+
+func cleanupExpiredRequestLogTable(db *gorm.DB, tableName string, cutoff time.Time) error {
+	for {
+		result := db.Exec(`
+WITH expired AS (
+  SELECT id
+  FROM `+tableName+`
+  WHERE created_at < ?
+  ORDER BY created_at ASC, id ASC
+  LIMIT ?
+)
+DELETE FROM `+tableName+`
+WHERE id IN (SELECT id FROM expired)
+`, cutoff, defaultCleanupBatchSize)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected < int64(defaultCleanupBatchSize) {
+			return nil
+		}
+	}
 }
 
 // StartRetentionCleaner 启动每日一次的日志保留期清理。
