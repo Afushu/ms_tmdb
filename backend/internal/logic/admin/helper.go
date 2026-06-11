@@ -72,9 +72,9 @@ func applyKeywordFilter(db *gorm.DB, keyword, mode string, columns ...string) *g
 		return db
 	}
 
-	pattern := "%" + kw + "%"
+	pattern := "%" + escapeLikeKeyword(kw) + "%"
 	if normalizeSearchMode(mode) == "prefix" {
-		pattern = kw + "%"
+		pattern = escapeLikeKeyword(kw) + "%"
 	}
 
 	kwInt, kwIntErr := strconv.Atoi(kw)
@@ -89,7 +89,7 @@ func applyKeywordFilter(db *gorm.DB, keyword, mode string, columns ...string) *g
 			}
 			continue
 		}
-		parts = append(parts, fmt.Sprintf("%s ILIKE ?", col))
+		parts = append(parts, fmt.Sprintf(`%s ILIKE ? ESCAPE '\'`, col))
 		args = append(args, pattern)
 	}
 	if len(parts) == 0 {

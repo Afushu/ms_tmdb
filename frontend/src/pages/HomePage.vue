@@ -14,20 +14,17 @@ import {
   readQueryString,
   searchTypeOptions,
 } from "@/utils/routeSearch";
-import { resolveErrorMessage } from "@/utils/errors";
 import { isSameQuery } from "@/utils/routeQuery";
 
 const route = useRoute();
 const router = useRouter();
 
 const loading = ref(false);
-const error = ref("");
 const latestMedia = ref<AdminHomeMediaItem[]>([]);
 const hotMedia = ref<AdminHomeMediaItem[]>([]);
 const searchQuery = ref(readQueryString(route.query.q));
 const searchType = ref<SearchType>(normalizeSearchType(route.query.type));
 const searching = ref(false);
-const searchError = ref("");
 const searchResults = ref<SearchResultItem[]>([]);
 let searchReqSeq = 0;
 
@@ -56,14 +53,11 @@ function yearText(value: string): string {
 
 async function loadData() {
   loading.value = true;
-  error.value = "";
   try {
     const resp = await getHomeDashboard();
     latestMedia.value = resp.data?.latest ?? [];
     hotMedia.value = resp.data?.hot ?? [];
-  } catch (err: unknown) {
-    error.value = resolveErrorMessage(err, "加载失败");
-  } finally {
+  } catch { /* handled by global toast */ } finally {
     loading.value = false;
   }
 }
@@ -75,7 +69,6 @@ function isSameSearchQuery(nextQuery: LocationQueryRaw): boolean {
 async function runSearch(targetType: SearchType, targetQuery: string) {
   if (!targetQuery) {
     searchReqSeq++;
-    searchError.value = "请输入关键词";
     searchResults.value = [];
     searching.value = false;
     return;
@@ -83,17 +76,12 @@ async function runSearch(targetType: SearchType, targetQuery: string) {
 
   const requestSeq = ++searchReqSeq;
   searching.value = true;
-  searchError.value = "";
   searchResults.value = [];
   try {
     const resp = await searchByType(targetType, targetQuery, 1);
     if (requestSeq !== searchReqSeq) return;
     searchResults.value = resp.data?.results ?? [];
-  } catch (err: unknown) {
-    if (requestSeq === searchReqSeq) {
-      searchError.value = resolveErrorMessage(err, "搜索失败");
-    }
-  } finally {
+  } catch { /* handled by global toast */ } finally {
     if (requestSeq === searchReqSeq) {
       searching.value = false;
     }
@@ -105,7 +93,6 @@ async function handleHomeSearch() {
   const targetType = searchType.value;
   if (!trimmedQuery) {
     searchReqSeq++;
-    searchError.value = "请输入关键词";
     searchResults.value = [];
     searching.value = false;
     if (route.fullPath !== "/") {
@@ -136,7 +123,6 @@ watch(
     if (!nextQuery) {
       searchReqSeq++;
       searchResults.value = [];
-      searchError.value = "";
       searching.value = false;
       return;
     }
@@ -175,11 +161,10 @@ onMounted(loadData);
         </button>
       </div>
 
-      <p v-if="searchError" class="mt-3 text-sm text-red-600">{{ searchError }}</p>
     </div>
   </section>
 
-  <section v-if="hasRouteQuery || searchResults.length || searchError" class="card mt-4">
+  <section v-if="hasRouteQuery || searchResults.length" class="card mt-4">
     <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
       <h3 class="section-title !mb-0">搜索结果</h3>
       <span class="badge">{{ resultSummary }}</span>
@@ -201,7 +186,6 @@ onMounted(loadData);
     </div>
     <span class="badge">Local Library</span>
   </section>
-  <p v-if="error" class="mt-3 text-sm text-red-600">{{ error }}</p>
 
   <section class="mt-6">
     <h3 class="section-title">最新入库</h3>

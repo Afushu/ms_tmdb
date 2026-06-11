@@ -4,7 +4,6 @@ import { prefetchMediaDetail } from "@/api/prefetch";
 import { useRoute, useRouter } from "vue-router";
 import { getPersonCombinedCredits, getPersonDetail, getPersonImages } from "@/api/person";
 import { profileImg, tmdbImg } from "@/api/tmdb";
-import { resolveErrorMessage } from "@/utils/errors";
 import { scheduleAfterPaint } from "@/utils/schedule";
 
 type PersonCreditItem = {
@@ -39,16 +38,13 @@ function toRecord(value: unknown): Record<string, unknown> {
 const route = useRoute();
 const router = useRouter();
 const loading = ref(false);
-const error = ref("");
 const detail = ref<PersonDetail | null>(null);
 const topCreditItems = ref<PersonCreditItem[]>([]);
 const photoProfiles = ref<PersonImageItem[]>([]);
 const creditsLoading = ref(false);
 const creditsLoaded = ref(false);
-const creditsError = ref("");
 const photosLoading = ref(false);
 const photosLoaded = ref(false);
-const photosError = ref("");
 let detailReqSeq = 0;
 let creditsReqSeq = 0;
 let photosReqSeq = 0;
@@ -98,10 +94,8 @@ function resetAuxState() {
   photoProfiles.value = [];
   creditsLoading.value = false;
   creditsLoaded.value = false;
-  creditsError.value = "";
   photosLoading.value = false;
   photosLoaded.value = false;
-  photosError.value = "";
 }
 
 function normalizeCreditItems(raw: unknown): PersonCreditItem[] {
@@ -157,7 +151,6 @@ async function loadPersonCombinedCredits(force = false) {
   const requestSeq = ++creditsReqSeq;
   const targetId = personId.value;
   creditsLoading.value = true;
-  creditsError.value = "";
   try {
     const resp = await getPersonCombinedCredits(targetId, "zh-CN", { force });
     if (requestSeq !== creditsReqSeq || targetId !== personId.value) {
@@ -169,7 +162,6 @@ async function loadPersonCombinedCredits(force = false) {
     if (requestSeq !== creditsReqSeq || targetId !== personId.value) {
       return;
     }
-    creditsError.value = resolveErrorMessage(err, "加载代表作品失败");
   } finally {
     if (requestSeq === creditsReqSeq) {
       creditsLoading.value = false;
@@ -185,7 +177,6 @@ async function loadPersonImages(force = false) {
   const requestSeq = ++photosReqSeq;
   const targetId = personId.value;
   photosLoading.value = true;
-  photosError.value = "";
   try {
     const resp = await getPersonImages(targetId, { force });
     if (requestSeq !== photosReqSeq || targetId !== personId.value) {
@@ -197,7 +188,6 @@ async function loadPersonImages(force = false) {
     if (requestSeq !== photosReqSeq || targetId !== personId.value) {
       return;
     }
-    photosError.value = resolveErrorMessage(err, "加载照片失败");
   } finally {
     if (requestSeq === photosReqSeq) {
       photosLoading.value = false;
@@ -207,14 +197,12 @@ async function loadPersonImages(force = false) {
 
 async function loadData() {
   if (!personId.value) {
-    error.value = "无效人物 ID";
     return;
   }
 
   const requestSeq = ++detailReqSeq;
   stopDeferredLoads();
   loading.value = true;
-  error.value = "";
   resetAuxState();
   try {
     const resp = await getPersonDetail(personId.value);
@@ -223,10 +211,7 @@ async function loadData() {
     }
     detail.value = resp.data;
     scheduleDeferredLoadsForDetail();
-  } catch (err: unknown) {
-    if (requestSeq === detailReqSeq) {
-      error.value = resolveErrorMessage(err, "加载失败");
-    }
+  } catch {
   } finally {
     if (requestSeq === detailReqSeq) {
       loading.value = false;
@@ -249,7 +234,6 @@ onBeforeUnmount(() => {
 
 <template>
   <p v-if="loading" class="card text-sm text-black/60">加载中...</p>
-  <p v-else-if="error" class="card text-sm text-red-600">{{ error }}</p>
 
   <template v-else-if="detail">
     <section class="card">
@@ -289,7 +273,6 @@ onBeforeUnmount(() => {
               </button>
             </div>
             <p v-if="photosLoading" class="text-xs text-black/55">正在加载照片...</p>
-            <p v-else-if="photosError" class="text-xs text-red-600">{{ photosError }}</p>
             <p v-else-if="photosLoaded && !photoProfiles.length" class="text-xs text-black/55">暂无照片数据</p>
             <div v-else-if="photoProfiles.length" class="person-photo-strip">
               <img
@@ -315,7 +298,6 @@ onBeforeUnmount(() => {
               </button>
             </div>
             <p v-if="creditsLoading" class="text-xs text-black/55">正在加载代表作品...</p>
-            <p v-else-if="creditsError" class="text-xs text-red-600">{{ creditsError }}</p>
             <p v-else-if="creditsLoaded && !topCredits.length" class="text-xs text-black/55">暂无代表作品数据</p>
             <div v-else-if="topCredits.length" class="cast-grid">
               <div v-for="c in topCredits" :key="c.id + (c.media_type || '')" class="cast-card">

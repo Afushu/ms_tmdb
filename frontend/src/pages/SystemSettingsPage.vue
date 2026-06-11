@@ -17,13 +17,11 @@ import {
   type AdminAutoSyncMode,
 } from "@/api/admin";
 import { useToastNotice } from "@/composables/useToastNotice";
-import { resolveErrorMessage } from "@/utils/errors";
 
 const loading = ref(false);
 const appVersion = __APP_VERSION__;
 
 const proxySaving = ref(false);
-const proxyError = ref("");
 const proxyEnabled = ref(false);
 const proxyURL = ref("");
 const proxyLocalWriteEnabled = ref(true);
@@ -31,7 +29,6 @@ const proxyTimeout = ref(30000);
 const proxyTimeoutRestartRequired = ref(false);
 
 const syncSaving = ref(false);
-const syncError = ref("");
 const syncEnabled = ref(true);
 const syncCronExpr = ref("*/30 * * * *");
 const syncMode = ref<AdminAutoSyncMode>("update_unmodified");
@@ -43,7 +40,6 @@ const syncTriggering = ref(false);
 const logsLoading = ref(false);
 const logsClearing = ref(false);
 const clearLogsConfirmVisible = ref(false);
-const logsError = ref("");
 const logsStatus = ref("");
 const logsPage = ref(1);
 const logsPageSize = ref(10);
@@ -51,7 +47,6 @@ const logsTotal = ref(0);
 const logsItems = ref<AdminAutoSyncLogItem[]>([]);
 const detailModalVisible = ref(false);
 const detailLoading = ref(false);
-const detailError = ref("");
 const activeLogDetail = ref<AdminAutoSyncLogDetailResp | null>(null);
 const activeLogId = ref<number | null>(null);
 const detailSyncedPage = ref(1);
@@ -229,7 +224,6 @@ function detailFailedTotalPages() {
 
 async function loadAutoSyncLogs(page = logsPage.value) {
   logsLoading.value = true;
-  logsError.value = "";
 
   try {
     const safePage = Math.max(1, Math.trunc(page));
@@ -242,8 +236,8 @@ async function loadAutoSyncLogs(page = logsPage.value) {
     logsItems.value = Array.isArray(data.results) ? data.results : [];
     logsTotal.value = Math.max(0, Number(data.total) || 0);
     logsPage.value = normalizeNumber(Number(data.page), 1, logsTotalPages());
-  } catch (err: unknown) {
-    logsError.value = resolveErrorMessage(err, "读取执行日志失败");
+  } catch {
+    // errors shown via global toast
   } finally {
     logsLoading.value = false;
   }
@@ -266,7 +260,6 @@ function closeClearLogsConfirm() {
 
 async function clearLogs() {
   logsClearing.value = true;
-  logsError.value = "";
 
   try {
     const resp = await clearAutoSyncLogs();
@@ -275,8 +268,8 @@ async function clearLogs() {
     logsPage.value = 1;
     await loadAutoSyncLogs(1);
     clearLogsConfirmVisible.value = false;
-  } catch (err: unknown) {
-    logsError.value = resolveErrorMessage(err, "清空执行日志失败");
+  } catch {
+    // errors shown via global toast
   } finally {
     logsClearing.value = false;
   }
@@ -294,7 +287,6 @@ async function goToLogsPage(page: number) {
 
 async function loadLogDetail(id: number, params: AdminAutoSyncLogDetailParams = {}, reset = false) {
   detailLoading.value = true;
-  detailError.value = "";
   activeLogId.value = id;
   if (reset) {
     activeLogDetail.value = null;
@@ -324,11 +316,10 @@ async function loadLogDetail(id: number, params: AdminAutoSyncLogDetailParams = 
       1,
       detailTotalPages(data.failed, detailFailedPageSize.value),
     );
-  } catch (err: unknown) {
+  } catch {
     if (!detailModalVisible.value || activeLogId.value !== id) {
       return;
     }
-    detailError.value = resolveErrorMessage(err, "读取日志明细失败");
   } finally {
     if (activeLogId.value === id) {
       detailLoading.value = false;
@@ -377,7 +368,6 @@ async function goToDetailFailedPage(page: number) {
 function closeLogDetail() {
   detailModalVisible.value = false;
   detailLoading.value = false;
-  detailError.value = "";
   activeLogDetail.value = null;
   activeLogId.value = null;
   detailSyncedPage.value = 1;
@@ -386,8 +376,6 @@ function closeLogDetail() {
 
 async function loadSettings() {
   loading.value = true;
-  proxyError.value = "";
-  syncError.value = "";
 
   try {
     const [proxyResp, autoSyncResp] = await Promise.all([getProxySettings(), getAutoSyncSettings()]);
@@ -405,10 +393,8 @@ async function loadSettings() {
     syncBatchSize.value = normalizeNumber(Number(syncData.batch_size), 1, 500);
     syncStartDelaySecond.value = normalizeNumber(Number(syncData.start_delay_second), 0, 3600);
     syncRunning.value = !!syncData.running;
-  } catch (err: unknown) {
-    const text = resolveErrorMessage(err, "读取系统设置失败");
-    proxyError.value = text;
-    syncError.value = text;
+  } catch {
+    // errors shown via global toast
   } finally {
     loading.value = false;
   }
@@ -416,7 +402,6 @@ async function loadSettings() {
 
 async function saveProxySettings() {
   proxySaving.value = true;
-  proxyError.value = "";
   try {
     const nextProxyURL = proxyEnabled.value ? normalizeProxyURL(proxyURL.value) : "";
     const resp = await updateProxySettings({
@@ -438,8 +423,8 @@ async function saveProxySettings() {
           : "代理已关闭，当前为直连",
       proxyEnabled.value ? "success" : "info",
     );
-  } catch (err: unknown) {
-    proxyError.value = resolveErrorMessage(err, "保存代理设置失败");
+  } catch {
+    // errors shown via global toast
   } finally {
     proxySaving.value = false;
   }
@@ -447,7 +432,6 @@ async function saveProxySettings() {
 
 async function saveAutoSyncSettings() {
   syncSaving.value = true;
-  syncError.value = "";
   try {
     const payload = {
       enabled: syncEnabled.value,
@@ -468,8 +452,8 @@ async function saveAutoSyncSettings() {
       syncEnabled.value ? "自动同步配置已保存并生效" : "自动同步已关闭",
       syncEnabled.value ? "success" : "info",
     );
-  } catch (err: unknown) {
-    syncError.value = resolveErrorMessage(err, "保存自动同步设置失败");
+  } catch {
+    // errors shown via global toast
   } finally {
     syncSaving.value = false;
   }
@@ -477,7 +461,6 @@ async function saveAutoSyncSettings() {
 
 async function triggerAutoSyncNow() {
   syncTriggering.value = true;
-  syncError.value = "";
 
   try {
     const resp = await runAutoSyncNow();
@@ -485,8 +468,8 @@ async function triggerAutoSyncNow() {
     syncRunning.value = !!data.running;
     showToastNotice(data.message || "已触发一次立即同步任务", "success");
     await loadAutoSyncLogs(1);
-  } catch (err: unknown) {
-    syncError.value = resolveErrorMessage(err, "触发立即同步失败");
+  } catch {
+    // errors shown via global toast
   } finally {
     syncTriggering.value = false;
   }
@@ -608,7 +591,6 @@ onMounted(reloadAll);
             {{ proxySaving ? "保存中..." : "保存代理设置" }}
           </button>
         </div>
-        <p v-if="proxyError" class="settings-feedback settings-feedback-error">{{ proxyError }}</p>
       </div>
 
       <div class="card settings-card">
@@ -689,7 +671,6 @@ onMounted(reloadAll);
             {{ syncTriggering ? "触发中..." : "立即执行一次" }}
           </button>
         </div>
-        <p v-if="syncError" class="settings-feedback settings-feedback-error">{{ syncError }}</p>
       </div>
     </section>
 
@@ -725,8 +706,6 @@ onMounted(reloadAll);
           </button>
         </div>
       </div>
-
-      <p v-if="logsError" class="settings-feedback settings-feedback-error">{{ logsError }}</p>
 
       <div class="table-shell settings-table-shell">
         <table class="min-w-full text-sm settings-log-table">
@@ -821,7 +800,6 @@ onMounted(reloadAll);
 
         <div class="max-h-[calc(92vh-72px)] overflow-y-auto px-4 py-4 sm:px-5">
           <p v-if="detailLoading && !activeLogDetail" class="text-sm text-black/60">明细加载中...</p>
-          <p v-if="detailError" class="settings-feedback settings-feedback-error mb-3">{{ detailError }}</p>
 
           <template v-if="activeLogDetail">
             <p v-if="detailLoading" class="mb-3 text-xs text-black/50">分页加载中...</p>

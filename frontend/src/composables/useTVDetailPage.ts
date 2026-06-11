@@ -24,7 +24,6 @@ import type {
   TVSeasonForm,
   TVSeasonSummary,
 } from "@/components/tv/types";
-import { resolveErrorMessage } from "@/utils/errors";
 import { normalizeCastMembers, normalizeGenreOptions, normalizeTVEditForm } from "@/utils/mediaNormalizers";
 import { scheduleAfterPaint } from "@/utils/schedule";
 
@@ -67,8 +66,8 @@ export function useTVDetailPage() {
   const saving = ref(false);
   const deleting = ref(false);
   const saveError = ref("");
-  const saveMessage = ref("");
   const deleteError = ref("");
+  const saveMessage = ref("");
   const comparedRemoteId = ref<number | null>(null);
   const checkingRemoteDiff = ref(false);
   const remoteDiffNotice = ref<RemoteDiffNotice | null>(null);
@@ -91,15 +90,15 @@ export function useTVDetailPage() {
   const selectedSeasonDetail = ref<TVSeasonDetail | null>(null);
   const selectedSeasonPayload = ref<Record<string, unknown> | null>(null);
   const seasonDetailLoading = ref(false);
-  const seasonDetailError = ref("");
   const seasonLocalSaved = ref(false);
   const seasonLocalSaving = ref(false);
   const seasonLocalMessage = ref("");
+  const seasonFormError = ref("");
+  const seasonDetailError = ref("");
+  const episodeFormError = ref("");
   const seasonEditorVisible = ref(false);
   const seasonEditorMode = ref<"create" | "edit">("create");
-  const seasonFormError = ref("");
   const episodeCreatorVisible = ref(false);
-  const episodeFormError = ref("");
   const editingEpisodeNumber = ref<number | null>(null);
   const editingEpisodeInitialForm = ref<TVEpisodeForm | null>(null);
   const episodeEditableFields: Array<keyof TVEpisodeForm> = [
@@ -261,7 +260,6 @@ export function useTVDetailPage() {
   function resetRemoteDiffState() {
     remoteDiffNotice.value = null;
     remoteDiffMessage.value = "";
-    remoteDiffError.value = "";
     remoteDiffDecision.value = "unknown";
     showRemoteDiffDetails.value = false;
     showLocalOverrideDiffDetails.value = false;
@@ -274,7 +272,6 @@ export function useTVDetailPage() {
     castMembers.value = [];
     creditsLoading.value = false;
     creditsLoaded.value = false;
-    creditsError.value = "";
   }
 
   function stopDeferredLoads() {
@@ -341,7 +338,6 @@ export function useTVDetailPage() {
     selectedSeasonNumber.value = null;
     selectedSeasonDetail.value = null;
     seasonDetailLoading.value = false;
-    seasonDetailError.value = "";
     resetSeasonLocalState();
   }
 
@@ -491,10 +487,8 @@ export function useTVDetailPage() {
     seasonLocalMessage.value = "";
     seasonEditorVisible.value = false;
     seasonEditorMode.value = "create";
-    seasonFormError.value = "";
     resetSeasonForm();
     episodeCreatorVisible.value = false;
-    episodeFormError.value = "";
     resetEpisodeForm();
     editingEpisodeNumber.value = null;
     editingEpisodeInitialForm.value = null;
@@ -560,11 +554,8 @@ export function useTVDetailPage() {
     resetEpisodeForm(formData);
     editingEpisodeInitialForm.value = { ...formData };
     episodeCreatorVisible.value = false;
-    episodeFormError.value = "";
     seasonEditorVisible.value = false;
-    seasonFormError.value = "";
     seasonLocalMessage.value = "";
-    seasonDetailError.value = "";
   }
 
   function cancelEpisodeEdit() {
@@ -706,8 +697,8 @@ export function useTVDetailPage() {
           : `第 ${seasonNumber} 季修改已保存到本地数据库`;
       closeSeasonEditor();
       closeEpisodeCreator();
-    } catch (err: unknown) {
-      seasonFormError.value = resolveErrorMessage(err, "保存季信息失败");
+    } catch {
+      // errors shown via global toast
     } finally {
       seasonLocalSaving.value = false;
     }
@@ -742,8 +733,8 @@ export function useTVDetailPage() {
       await loadSeasonDetail(deletingSeasonNumber, true);
       await loadData({ force: true, checkRemoteDiff: false });
       seasonLocalMessage.value = `第 ${deletingSeasonNumber} 季本地数据已删除`;
-    } catch (err: unknown) {
-      seasonDetailError.value = resolveErrorMessage(err, "删除本地季失败");
+    } catch {
+      // errors shown via global toast
     } finally {
       seasonLocalSaving.value = false;
     }
@@ -815,8 +806,8 @@ export function useTVDetailPage() {
       syncSeasonSummaryInDetail(selectedSeasonDetail.value);
       seasonLocalMessage.value = `第 ${episodeNumber} 集已新增到本地数据库`;
       closeEpisodeCreator();
-    } catch (err: unknown) {
-      episodeFormError.value = resolveErrorMessage(err, "新增本集失败");
+    } catch {
+      // errors shown via global toast
     } finally {
       seasonLocalSaving.value = false;
     }
@@ -837,8 +828,8 @@ export function useTVDetailPage() {
       cancelEpisodeEdit();
       closeEpisodeCreator();
       seasonLocalMessage.value = "当前季明细已保存到本地数据库";
-    } catch (err: unknown) {
-      seasonDetailError.value = resolveErrorMessage(err, "保存季明细失败");
+    } catch {
+      // errors shown via global toast
     } finally {
       seasonLocalSaving.value = false;
     }
@@ -928,8 +919,8 @@ export function useTVDetailPage() {
       seasonLocalMessage.value = `第 ${episodeNumber} 集本地修改已保存`;
       cancelEpisodeEdit();
       closeEpisodeCreator();
-    } catch (err: unknown) {
-      episodeFormError.value = resolveErrorMessage(err, "保存本集修改失败");
+    } catch {
+      // errors shown via global toast
     } finally {
       seasonLocalSaving.value = false;
     }
@@ -985,8 +976,8 @@ export function useTVDetailPage() {
         cancelEpisodeEdit();
       }
       seasonLocalMessage.value = `第 ${targetEpisodeNumber} 集已从本地数据库删除`;
-    } catch (err: unknown) {
-      seasonDetailError.value = resolveErrorMessage(err, "删除本集失败");
+    } catch {
+      // errors shown via global toast
     } finally {
       seasonLocalSaving.value = false;
     }
@@ -1041,7 +1032,6 @@ export function useTVDetailPage() {
       selectedSeasonPayload.value = null;
       selectedSeasonDetail.value = null;
       seasonLocalSaved.value = false;
-      seasonDetailError.value = resolveErrorMessage(err, "加载分集明细失败");
     } finally {
       if (requestSeq === seasonDetailReqSeq) {
         seasonDetailLoading.value = false;
@@ -1072,11 +1062,8 @@ export function useTVDetailPage() {
       }
       castMembers.value = normalizeCastMembers(resp.data);
       creditsLoaded.value = true;
-    } catch (err: unknown) {
-      if (requestSeq !== creditsReqSeq || targetId !== tvId.value) {
-        return;
-      }
-      creditsError.value = resolveErrorMessage(err, "加载演员失败");
+    } catch {
+      // errors shown via global toast
     } finally {
       if (requestSeq === creditsReqSeq) {
         creditsLoading.value = false;
@@ -1152,8 +1139,8 @@ export function useTVDetailPage() {
         path: "/library",
         query: { tab: "tv" },
       });
-    } catch (err: unknown) {
-      deleteError.value = resolveErrorMessage(err, "删除失败");
+    } catch {
+      // errors shown via global toast
     } finally {
       deleting.value = false;
     }
@@ -1222,8 +1209,8 @@ export function useTVDetailPage() {
       remoteDiffMessage.value = "";
       remoteDiffDecision.value = "has_diff_pending";
       comparedRemoteId.value = tvId.value;
-    } catch (err: unknown) {
-      remoteDiffError.value = resolveErrorMessage(err, "远程差异检测失败");
+    } catch {
+      // errors shown via global toast
     } finally {
       checkingRemoteDiff.value = false;
     }
@@ -1292,7 +1279,6 @@ export function useTVDetailPage() {
       scheduleDeferredLoadsForDetail();
     } catch (err: unknown) {
       if (requestSeq === loadReqSeq) {
-        error.value = resolveErrorMessage(err, "加载失败");
         clearSelectedSeasonState();
       }
     } finally {
@@ -1433,8 +1419,8 @@ export function useTVDetailPage() {
         return;
       }
       await loadData({ force: true });
-    } catch (err: unknown) {
-      saveError.value = resolveErrorMessage(err, "保存失败");
+    } catch {
+      // errors shown via global toast
     } finally {
       saving.value = false;
     }
@@ -1454,22 +1440,17 @@ export function useTVDetailPage() {
 
   return {
     loading,
-    error,
     detail,
     castMembers,
     creditsLoading,
     creditsLoaded,
-    creditsError,
     isEditing,
     saving,
     deleting,
-    saveError,
     saveMessage,
-    deleteError,
     checkingRemoteDiff,
     remoteDiffNotice,
     remoteDiffMessage,
-    remoteDiffError,
     remoteDiffDecision,
     showRemoteDiffDetails,
     showLocalOverrideDiffDetails,
@@ -1484,15 +1465,12 @@ export function useTVDetailPage() {
     selectedSeasonNumber,
     selectedSeasonDetail,
     seasonDetailLoading,
-    seasonDetailError,
     seasonLocalSaved,
     seasonLocalSaving,
     seasonLocalMessage,
     seasonEditorVisible,
     seasonEditorMode,
-    seasonFormError,
     episodeCreatorVisible,
-    episodeFormError,
     editingEpisodeNumber,
     genreOptions,
     genreKeyword,

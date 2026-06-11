@@ -3,11 +3,9 @@ import { onMounted, ref } from "vue";
 import { getProxySettings, updateProxySettings } from "@/api/admin";
 import ToastNotice from "@/components/common/ToastNotice.vue";
 import { useToastNotice } from "@/composables/useToastNotice";
-import { resolveErrorMessage } from "@/utils/errors";
 
 const loading = ref(false);
 const saving = ref(false);
-const error = ref("");
 const proxyURL = ref("");
 const enabled = ref(false);
 const { toastVisible, toastText, toastTone, showToastNotice, closeToastNotice } = useToastNotice();
@@ -18,14 +16,12 @@ function normalizeProxyURL(raw: string) {
 
 async function loadSettings() {
   loading.value = true;
-  error.value = "";
   try {
     const resp = await getProxySettings();
     const data = resp.data;
     proxyURL.value = data.proxy_url ?? "";
     enabled.value = !!data.enabled;
-  } catch (err: unknown) {
-    error.value = resolveErrorMessage(err, "读取代理设置失败");
+  } catch {
   } finally {
     loading.value = false;
   }
@@ -33,7 +29,6 @@ async function loadSettings() {
 
 async function saveSettings() {
   saving.value = true;
-  error.value = "";
   try {
     const nextProxyURL = enabled.value ? normalizeProxyURL(proxyURL.value) : "";
     const resp = await updateProxySettings({ proxy_url: nextProxyURL });
@@ -41,8 +36,7 @@ async function saveSettings() {
     proxyURL.value = data.proxy_url ?? "";
     enabled.value = !!data.enabled;
     showToastNotice(enabled.value ? "代理已启用" : "代理已关闭，当前为直连", enabled.value ? "success" : "info");
-  } catch (err: unknown) {
-    error.value = resolveErrorMessage(err, "保存代理设置失败");
+  } catch {
   } finally {
     saving.value = false;
   }
@@ -85,7 +79,6 @@ onMounted(loadSettings);
       </div>
     </template>
 
-    <p v-if="error" class="mt-3 text-sm text-red-600">{{ error }}</p>
     <ToastNotice :visible="toastVisible" :message="toastText" :tone="toastTone" @close="closeToastNotice" />
   </section>
 </template>

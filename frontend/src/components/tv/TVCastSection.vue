@@ -6,7 +6,6 @@ import type { TVCastMember } from "./types";
 defineProps<{
   creditsLoading: boolean;
   creditsLoaded: boolean;
-  creditsError: string;
   castMembers: TVCastMember[];
   personLink: (personId: number) => RouteLocationRaw;
   onRefresh: () => void;
@@ -23,7 +22,6 @@ defineProps<{
       </button>
     </div>
     <p v-if="creditsLoading" class="text-xs text-black/55">正在加载演员信息...</p>
-    <p v-else-if="creditsError" class="text-xs text-red-600">{{ creditsError }}</p>
     <p v-else-if="creditsLoaded && !castMembers.length" class="text-xs text-black/55">暂无演员数据</p>
     <div v-else-if="castMembers.length" class="cast-grid">
       <div v-for="c in castMembers" :key="c.id" class="cast-card">

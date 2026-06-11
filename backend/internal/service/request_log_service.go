@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"time"
 
@@ -151,9 +152,13 @@ func (s *RequestLogService) WriteProxyAccess(ctx context.Context, entry ProxyAcc
 		return nil
 	}
 
+	mediaType, tmdbID := parseProxyMediaTarget(entry.Path)
 	return s.db.WithContext(contextOrBackground(ctx)).Create(&model.ProxyAccessLog{
 		RequestID: entry.RequestID,
 		Method:    entry.Method,
+
+		MediaType: mediaType,
+		TmdbID:    tmdbID,
 
 		Path:       entry.Path,
 		Query:      entry.Query,
@@ -172,6 +177,36 @@ func (s *RequestLogService) WriteProxyAccess(ctx context.Context, entry ProxyAcc
 		ResponseBodyBytes:     entry.ResponseBody.Bytes,
 		ResponseBodyTruncated: entry.ResponseBody.Truncated,
 	}).Error
+}
+
+func parseProxyMediaTarget(path string) (string, int) {
+	tmdbPath := strings.TrimSpace(path)
+	if tmdbPath == "" {
+		return "", 0
+	}
+
+	for _, prefix := range []string{"/api/v3", "/v3", "/3"} {
+		if strings.HasPrefix(tmdbPath, prefix) {
+			tmdbPath = strings.TrimPrefix(tmdbPath, prefix)
+			break
+		}
+	}
+
+	parts := strings.Split(strings.Trim(tmdbPath, "/"), "/")
+	if len(parts) < 2 {
+		return "", 0
+	}
+
+	mediaType := parts[0]
+	if mediaType != "movie" && mediaType != "tv" {
+		return "", 0
+	}
+
+	tmdbID, err := strconv.Atoi(parts[1])
+	if err != nil || tmdbID == 0 {
+		return "", 0
+	}
+	return mediaType, tmdbID
 }
 
 // WriteTmdbRequest 写入真实 TMDB 上游请求日志。

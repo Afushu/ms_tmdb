@@ -5,7 +5,7 @@ import AdminPreferencesDrawer from "@/components/layout/AdminPreferencesDrawer.v
 import AdminSidebar from "@/components/layout/AdminSidebar.vue";
 import AdminTabs from "@/components/layout/AdminTabs.vue";
 import AdminTopbar from "@/components/layout/AdminTopbar.vue";
-import VbenPage from "@/components/layout/VbenPage.vue";
+import { globalPageLoading } from "@/composables/useGlobalPageLoading";
 import { buildSearchQuery, readQueryString } from "@/utils/routeSearch";
 import { sidebarOptions, themeOptions, type AdminMenuGroup, type AdminMenuItem } from "./adminLayoutConfig";
 import { useAdminPreferences } from "./useAdminPreferences";
@@ -51,7 +51,6 @@ const currentSection = computed(() =>
   currentMenu.value?.section ?? String(route.meta.section ?? (route.path === "/" ? "工作台" : "系统")),
 );
 const currentTitle = computed(() => String(route.meta.title ?? currentMenu.value?.title ?? "首页"));
-const currentDescription = computed(() => String(route.meta.description ?? ""));
 
 const { closeAllTabs, closeLeftTabs, closeOtherTabs, closeRightTabs, closeTab, openedTabs } = useAdminTabs({
   currentSection,
@@ -70,6 +69,10 @@ function handleScroll() {
 
 function scrollToTop() {
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function reloadPage() {
+  router.go(0);
 }
 
 function toggleSidebar() {
@@ -135,6 +138,7 @@ onBeforeUnmount(() => {
         :current-title="currentTitle"
         :sidebar-open="sidebarOpen"
         @open-preferences="preferencesOpen = true"
+        @reload-page="reloadPage"
         @submit-search="submitTopbarSearch"
         @toggle-sidebar="toggleSidebar"
       />
@@ -151,14 +155,11 @@ onBeforeUnmount(() => {
       />
 
       <main class="page-shell admin-content" :class="{ 'admin-content-compact': preferences.compact }">
-        <VbenPage
-          :description="currentDescription"
-          :section="currentSection"
-          :show-header="false"
-          :title="currentTitle"
-        >
-          <RouterView />
-        </VbenPage>
+        <section class="vben-page">
+          <div class="vben-page-content">
+            <RouterView />
+          </div>
+        </section>
       </main>
     </section>
 
@@ -175,5 +176,12 @@ onBeforeUnmount(() => {
     />
 
     <button v-if="showBackToTop" class="back-top-btn" type="button" aria-label="返回顶部" @click="scrollToTop"></button>
+
+    <Transition name="admin-global-loading-fade">
+      <div v-if="globalPageLoading" class="admin-global-loading" role="status" aria-live="polite">
+        <div class="admin-global-loading-loader" aria-hidden="true"></div>
+        <div class="admin-global-loading-title">媒体数据管理</div>
+      </div>
+    </Transition>
   </div>
 </template>

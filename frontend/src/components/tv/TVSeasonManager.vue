@@ -13,12 +13,9 @@ defineProps<{
   seasonEditorVisible: boolean;
   seasonEditorMode: "create" | "edit";
   seasonLocalSaved: boolean;
-  seasonFormError: string;
-  episodeFormError: string;
   seasonForm: TVSeasonForm;
   episodeCreatorVisible: boolean;
   episodeForm: TVEpisodeForm;
-  seasonDetailError: string;
   editingEpisodeNumber: number | null;
   episodeEditChangedCount: number;
   episodeEditFieldClass: (field: keyof TVEpisodeForm) => string;
@@ -152,12 +149,6 @@ defineProps<{
     >
       当前季已保存到本地数据库
     </p>
-    <p v-if="seasonFormError" class="mt-1 text-xs text-red-600">
-      {{ seasonFormError }}
-    </p>
-    <p v-if="episodeFormError" class="mt-1 text-xs text-red-600">
-      {{ episodeFormError }}
-    </p>
 
     <div v-if="seasonEditorVisible" class="season-editor-box">
       <div class="grid gap-3 md:grid-cols-2">
@@ -272,7 +263,6 @@ defineProps<{
     </div>
 
     <p v-if="seasonDetailLoading" class="mt-3 text-xs text-black/60">正在加载分集明细...</p>
-    <p v-else-if="seasonDetailError" class="mt-3 text-xs text-red-600">{{ seasonDetailError }}</p>
     <p v-else-if="!selectedSeasonDetail && !seasonEditorVisible" class="season-inline-note mt-3">
       请选择一个已有季，或点击“新增季”创建本地季。
     </p>

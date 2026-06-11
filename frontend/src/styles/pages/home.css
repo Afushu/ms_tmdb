@@ -7,7 +7,7 @@
 .home-search-panel {
   min-width: 0;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .home-search-panel::before {
@@ -38,4 +38,26 @@
   margin-top: 20px;
   border-bottom: 1px solid var(--border-muted);
   padding-bottom: 10px;
+}
+
+.home-search-panel .search-toolbar-form {
+  align-items: start;
+}
+
+.home-search-panel .glass-select {
+  z-index: 2;
+  min-width: 0;
+}
+
+.home-search-panel .glass-select-trigger,
+.home-search-panel .search-toolbar-form > .field-control,
+.home-search-panel .search-toolbar-form > .btn-primary {
+  height: 40px;
+}
+
+.home-search-panel .search-toolbar-form > .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
 }

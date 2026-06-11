@@ -58,18 +58,7 @@ type homeMediaRow struct {
 func (l *GetHomeDashboardLogic) queryLatestHomeMedia() ([]types.AdminHomeMediaItem, error) {
 	var rows []homeMediaRow
 	if err := l.svcCtx.DB.WithContext(l.ctx).Raw(`
-SELECT
-  media_type,
-  tmdb_id,
-  title,
-  original_title,
-  poster_path,
-  vote_average,
-  air_date,
-  popularity,
-  visit_count,
-  created_at
-FROM (
+WITH latest_movies AS (
   SELECT
     'movie' AS media_type,
     tmdb_id,
@@ -83,7 +72,10 @@ FROM (
     created_at
   FROM movies
   WHERE deleted_at IS NULL
-  UNION ALL
+  ORDER BY created_at DESC, tmdb_id DESC
+  LIMIT 10
+),
+latest_tv AS (
   SELECT
     'tv' AS media_type,
     tmdb_id,
@@ -97,6 +89,46 @@ FROM (
     created_at
   FROM tv_series
   WHERE deleted_at IS NULL
+  ORDER BY created_at DESC, tmdb_id DESC
+  LIMIT 10
+)
+SELECT
+  media_type,
+  tmdb_id,
+  title,
+  original_title,
+  poster_path,
+  vote_average,
+  air_date,
+  popularity,
+  visit_count,
+  created_at
+FROM (
+  SELECT
+    media_type,
+    tmdb_id,
+    title,
+    original_title,
+    poster_path,
+    vote_average,
+    air_date,
+    popularity,
+    visit_count,
+    created_at
+  FROM latest_movies
+  UNION ALL
+  SELECT
+    media_type,
+    tmdb_id,
+    title,
+    original_title,
+    poster_path,
+    vote_average,
+    air_date,
+    popularity,
+    visit_count,
+    created_at
+  FROM latest_tv
 ) AS local_media
 ORDER BY created_at DESC, tmdb_id DESC
 LIMIT 10
@@ -106,34 +138,19 @@ LIMIT 10
 	return convertHomeMediaRows(rows), nil
 }
 
-// queryHotHomeMedia 从近 30 天代理访问日志中聚合本地媒体详情访问次数，最终只返回已入库内容。
+// queryHotHomeMedia 从近 30 天代理访问日志中按结构化媒体字段聚合访问次数，最终只返回已入库内容。
 func (l *GetHomeDashboardLogic) queryHotHomeMedia() ([]types.AdminHomeMediaItem, error) {
 	var rows []homeMediaRow
 	if err := l.svcCtx.DB.WithContext(l.ctx).Raw(`
-WITH hit_sources AS (
-  SELECT
-    'movie' AS media_type,
-    regexp_replace(path, '^/(api/v3|v3|3)/movie/(-[0-9]+|[0-9]+).*$','\2')::int AS tmdb_id
-  FROM proxy_access_logs
-  WHERE deleted_at IS NULL
-    AND status_code >= 200
-    AND status_code < 400
-    AND created_at >= NOW() - INTERVAL '30 days'
-    AND path ~ '^/(api/v3|v3|3)/movie/(-[0-9]+|[0-9]+)($|/.*$)'
-  UNION ALL
-  SELECT
-    'tv' AS media_type,
-    regexp_replace(path, '^/(api/v3|v3|3)/tv/(-[0-9]+|[0-9]+).*$','\2')::int AS tmdb_id
-  FROM proxy_access_logs
-  WHERE deleted_at IS NULL
-    AND status_code >= 200
-    AND status_code < 400
-    AND created_at >= NOW() - INTERVAL '30 days'
-    AND path ~ '^/(api/v3|v3|3)/tv/(-[0-9]+|[0-9]+)($|/.*$)'
-),
-hit_counts AS (
+WITH hit_counts AS (
   SELECT media_type, tmdb_id, COUNT(*)::bigint AS visit_count
-  FROM hit_sources
+  FROM proxy_access_logs
+  WHERE deleted_at IS NULL
+    AND status_code >= 200
+    AND status_code < 400
+    AND created_at >= NOW() - INTERVAL '30 days'
+    AND media_type IN ('movie', 'tv')
+    AND tmdb_id <> 0
   GROUP BY media_type, tmdb_id
 ),
 home_media AS (

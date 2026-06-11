@@ -8,7 +8,7 @@ import {
   type AdminThemeColor,
 } from "./adminLayoutConfig";
 
-const preferenceStorageKey = "ms_tmdb_admin_preferences";
+const preferenceStorageKey = "ms_tmdb_vben_admin_preferences";
 
 function normalizePreferences(raw: unknown): AdminPreferences {
   const payload = raw && typeof raw === "object" ? (raw as Partial<Record<keyof AdminPreferences, unknown>>) : {};
@@ -73,6 +73,7 @@ export function useAdminPreferences() {
     "--text-main": currentThemeOption.value.textMain,
     "--text-muted": currentThemeOption.value.textMuted,
     "--topbar-bg": currentThemeOption.value.topbarBg,
+    "--primary": "212 100% 54%",
     "color-scheme": currentThemeOption.value.colorScheme,
   }));
 

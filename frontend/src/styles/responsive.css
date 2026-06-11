@@ -66,9 +66,6 @@
     padding: 0 16px;
   }
 
-  .vben-page-header {
-    padding: 16px;
-  }
 }
 
 @media (max-width: 767px) {
@@ -82,17 +79,17 @@
     padding: 0 12px;
   }
 
-  .admin-page-title {
-    font-size: 16px;
+  .admin-topbar-left {
+    flex: 1;
+    min-width: 0;
   }
 
-  .admin-title-block,
-  .admin-quick-link {
-    display: none;
+  .admin-breadcrumb-current {
+    max-width: 32vw;
   }
 
   .admin-top-actions {
-    flex: 1;
+    flex: 0 1 42vw;
     min-width: 0;
   }
 
@@ -115,22 +112,6 @@
     max-width: 126px;
     padding: 8px 10px;
     font-size: 13px;
-  }
-
-  .vben-page {
-    gap: 12px;
-  }
-
-  .vben-page-header {
-    flex-direction: column;
-  }
-
-  .vben-page-title {
-    font-size: 18px;
-  }
-
-  .vben-page-extra {
-    width: 100%;
   }
 
   .card {
@@ -166,7 +147,6 @@
 @media (max-width: 1024px) {
   .admin-topbar,
   .admin-tabs,
-  .vben-page-header,
   .card,
   .poster-card,
   .glass-pill,

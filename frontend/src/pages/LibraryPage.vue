@@ -24,7 +24,6 @@ import { tmdbImg } from "@/api/tmdb";
 import { getMovieGenreList } from "@/api/movie";
 import { getTVGenreList } from "@/api/tv";
 import { movieStatusOptions, tvStatusOptions, tvTypeOptions } from "@/constants/mediaStatus";
-import { resolveErrorMessage } from "@/utils/errors";
 import { normalizeGenreOptions, type GenreOption } from "@/utils/mediaNormalizers";
 import { isSameQuery, readQueryString } from "@/utils/routeQuery";
 
@@ -41,7 +40,6 @@ const searchMode = ref<SearchMode>(normalizeSearchMode(route.query.mode));
 const keywordInput = ref(readQueryString(route.query.q));
 const keyword = ref(readQueryString(route.query.q));
 const loading = ref(false);
-const error = ref("");
 const items = ref<LibraryListItem[]>([]);
 const total = ref(0);
 const page = ref(normalizePage(route.query.page));
@@ -213,7 +211,6 @@ async function loadData() {
   const targetKeyword = keyword.value;
   const targetSearchMode = searchMode.value;
   loading.value = true;
-  error.value = "";
   try {
     const resp =
       targetTab === "movie"
@@ -225,11 +222,7 @@ async function loadData() {
     const normalized = normalizeListResponse(resp.data);
     items.value = normalized.results;
     total.value = normalized.total;
-  } catch (err: unknown) {
-    if (requestSeq === loadReqSeq) {
-      error.value = resolveErrorMessage(err, "加载失败");
-    }
-  } finally {
+  } catch { /* handled by global toast */ } finally {
     if (requestSeq === loadReqSeq) {
       loading.value = false;
     }
@@ -366,9 +359,7 @@ async function uploadCreateImage(mediaType: MediaTab, field: "poster_path" | "ba
     } else {
       tvCreateForm.value[field] = path;
     }
-  } catch (err: unknown) {
-    createError.value = resolveErrorMessage(err, "图片上传失败");
-  } finally {
+  } catch { /* handled by global toast */ } finally {
     uploadingKey.value = "";
     input.value = "";
   }
@@ -425,9 +416,7 @@ async function submitCreate() {
       closeCreatePanel();
       await loadData();
       await router.push(`/movie/${createdID}`);
-    } catch (err: unknown) {
-      createError.value = resolveErrorMessage(err, "创建失败");
-    } finally {
+    } catch { /* handled by global toast */ } finally {
       creating.value = false;
     }
     return;
@@ -487,9 +476,7 @@ async function submitCreate() {
     closeCreatePanel();
     await loadData();
     await router.push(`/tv/${createdID}`);
-  } catch (err: unknown) {
-    createError.value = resolveErrorMessage(err, "创建失败");
-  } finally {
+  } catch { /* handled by global toast */ } finally {
     creating.value = false;
   }
 }
@@ -515,7 +502,6 @@ async function confirmDeleteItem() {
   if (!Number.isInteger(id) || id === 0) return;
 
   deletingId.value = id;
-  error.value = "";
   try {
     if (activeTab.value === "movie") {
       await deleteMovie(id);
@@ -530,9 +516,7 @@ async function confirmDeleteItem() {
     }
     await loadData();
     closeDeleteModal();
-  } catch (err: unknown) {
-    error.value = resolveErrorMessage(err, "删除失败");
-  } finally {
+  } catch { /* handled by global toast */ } finally {
     deletingId.value = null;
   }
 }
@@ -688,7 +672,6 @@ onMounted(loadData);
       <button class="btn-primary disabled:opacity-60" :disabled="creating || uploadingKey !== ''" @click="submitCreate">
         {{ creating ? "创建中..." : "创建并进入详情" }}
       </button>
-      <span v-if="createError" class="text-xs text-red-600">{{ createError }}</span>
     </div>
   </ModalShell>
 
@@ -718,7 +701,6 @@ onMounted(loadData);
   </div>
 
   <p v-if="loading" class="card mt-4 text-sm text-black/60">加载中...</p>
-  <p v-else-if="error" class="card mt-4 text-sm text-red-600">{{ error }}</p>
 
   <template v-else>
     <section class="library-list-summary mt-4">

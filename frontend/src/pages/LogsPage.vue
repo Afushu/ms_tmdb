@@ -16,7 +16,6 @@ import {
   type AdminTmdbRequestLogItem,
 } from "@/api/admin";
 import { useToastNotice } from "@/composables/useToastNotice";
-import { resolveErrorMessage } from "@/utils/errors";
 
 type LogTab = "access" | "tmdb";
 type LogDetail = AdminProxyAccessLogDetailResp | AdminTmdbRequestLogDetailResp;
@@ -26,7 +25,6 @@ const activeTab = ref<LogTab>("access");
 const accessLoading = ref(false);
 const accessClearing = ref(false);
 const accessLoaded = ref(false);
-const accessError = ref("");
 const accessStatus = ref("");
 const accessKeyword = ref("");
 const accessPage = ref(1);
@@ -37,7 +35,6 @@ const accessItems = ref<AdminProxyAccessLogItem[]>([]);
 const tmdbLoading = ref(false);
 const tmdbClearing = ref(false);
 const tmdbLoaded = ref(false);
-const tmdbError = ref("");
 const tmdbStatus = ref("");
 const tmdbKeyword = ref("");
 const tmdbPage = ref(1);
@@ -47,7 +44,6 @@ const tmdbItems = ref<AdminTmdbRequestLogItem[]>([]);
 
 const detailVisible = ref(false);
 const detailLoading = ref(false);
-const detailError = ref("");
 const detailType = ref<LogTab>("access");
 const accessDetail = ref<AdminProxyAccessLogDetailResp | null>(null);
 const tmdbDetail = ref<AdminTmdbRequestLogDetailResp | null>(null);
@@ -102,7 +98,6 @@ function setActiveTab(tab: LogTab) {
 
 async function loadAccessLogs(page = accessPage.value) {
   accessLoading.value = true;
-  accessError.value = "";
   try {
     const safePage = Math.max(1, Math.trunc(page));
     const resp = await getProxyAccessLogs({
@@ -117,8 +112,7 @@ async function loadAccessLogs(page = accessPage.value) {
     accessPage.value = normalizeNumber(Number(data.page) || 1, 1, totalPages(accessTotal.value, accessPageSize.value));
     accessPageSize.value = normalizeNumber(Number(data.page_size) || accessPageSize.value, 1, 100);
     accessLoaded.value = true;
-  } catch (err: unknown) {
-    accessError.value = resolveErrorMessage(err, "读取代理访问日志失败");
+  } catch {
   } finally {
     accessLoading.value = false;
   }
@@ -126,7 +120,6 @@ async function loadAccessLogs(page = accessPage.value) {
 
 async function loadTmdbLogs(page = tmdbPage.value) {
   tmdbLoading.value = true;
-  tmdbError.value = "";
   try {
     const safePage = Math.max(1, Math.trunc(page));
     const resp = await getTmdbRequestLogs({
@@ -141,8 +134,7 @@ async function loadTmdbLogs(page = tmdbPage.value) {
     tmdbPage.value = normalizeNumber(Number(data.page) || 1, 1, totalPages(tmdbTotal.value, tmdbPageSize.value));
     tmdbPageSize.value = normalizeNumber(Number(data.page_size) || tmdbPageSize.value, 1, 100);
     tmdbLoaded.value = true;
-  } catch (err: unknown) {
-    tmdbError.value = resolveErrorMessage(err, "读取 TMDB 请求日志失败");
+  } catch {
   } finally {
     tmdbLoading.value = false;
   }
@@ -206,15 +198,13 @@ async function goToPage(page: number) {
 async function openAccessDetail(item: AdminProxyAccessLogItem) {
   detailVisible.value = true;
   detailLoading.value = true;
-  detailError.value = "";
   detailType.value = "access";
   accessDetail.value = null;
   tmdbDetail.value = null;
   try {
     const resp = await getProxyAccessLogDetail(item.id);
     accessDetail.value = resp.data;
-  } catch (err: unknown) {
-    detailError.value = resolveErrorMessage(err, "读取代理访问日志详情失败");
+  } catch {
   } finally {
     detailLoading.value = false;
   }
@@ -223,15 +213,13 @@ async function openAccessDetail(item: AdminProxyAccessLogItem) {
 async function openTmdbDetail(item: AdminTmdbRequestLogItem) {
   detailVisible.value = true;
   detailLoading.value = true;
-  detailError.value = "";
   detailType.value = "tmdb";
   accessDetail.value = null;
   tmdbDetail.value = null;
   try {
     const resp = await getTmdbRequestLogDetail(item.id);
     tmdbDetail.value = resp.data;
-  } catch (err: unknown) {
-    detailError.value = resolveErrorMessage(err, "读取 TMDB 请求日志详情失败");
+  } catch {
   } finally {
     detailLoading.value = false;
   }
@@ -240,7 +228,6 @@ async function openTmdbDetail(item: AdminTmdbRequestLogItem) {
 function closeDetail() {
   detailVisible.value = false;
   detailLoading.value = false;
-  detailError.value = "";
   accessDetail.value = null;
   tmdbDetail.value = null;
 }
@@ -259,7 +246,6 @@ function closeClearConfirm() {
 async function clearCurrentLogs() {
   if (activeTab.value === "access") {
     accessClearing.value = true;
-    accessError.value = "";
     try {
       const resp = await clearProxyAccessLogs();
       showToastNotice(resp.data.message || "代理访问日志已清空");
@@ -267,8 +253,7 @@ async function clearCurrentLogs() {
       await loadAccessLogs(1);
       closeDetail();
       clearConfirmVisible.value = false;
-    } catch (err: unknown) {
-      accessError.value = resolveErrorMessage(err, "清空代理访问日志失败");
+    } catch {
     } finally {
       accessClearing.value = false;
     }
@@ -276,7 +261,6 @@ async function clearCurrentLogs() {
   }
 
   tmdbClearing.value = true;
-  tmdbError.value = "";
   try {
     const resp = await clearTmdbRequestLogs();
     showToastNotice(resp.data.message || "TMDB 请求日志已清空");
@@ -284,8 +268,7 @@ async function clearCurrentLogs() {
     await loadTmdbLogs(1);
     closeDetail();
     clearConfirmVisible.value = false;
-  } catch (err: unknown) {
-    tmdbError.value = resolveErrorMessage(err, "清空 TMDB 请求日志失败");
+  } catch {
   } finally {
     tmdbClearing.value = false;
   }
@@ -593,7 +576,6 @@ onMounted(() => {
       </div>
 
       <template v-if="activeTab === 'access'">
-        <p v-if="accessError" class="settings-feedback settings-feedback-error">{{ accessError }}</p>
 
         <div class="logs-list-shell">
           <div class="logs-list-head logs-grid-access">
@@ -646,7 +628,6 @@ onMounted(() => {
       </template>
 
       <template v-else>
-        <p v-if="tmdbError" class="settings-feedback settings-feedback-error">{{ tmdbError }}</p>
 
         <div class="logs-list-shell">
           <div class="logs-list-head logs-grid-tmdb">
@@ -731,7 +712,6 @@ onMounted(() => {
 
         <div class="logs-detail-content">
           <p v-if="detailLoading" class="text-sm text-black/60">详情加载中...</p>
-          <p v-if="detailError" class="settings-feedback settings-feedback-error mb-3">{{ detailError }}</p>
 
           <template v-if="activeDetail">
             <div class="logs-detail-overview">

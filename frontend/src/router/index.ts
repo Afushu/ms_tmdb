@@ -1,9 +1,9 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from "vue-router";
+import { startGlobalPageLoading, stopGlobalPageLoading } from "@/composables/useGlobalPageLoading";
 
 declare module "vue-router" {
   interface RouteMeta {
     activeMenu?: string;
-    description?: string;
     hideMenu?: boolean;
     hideTab?: boolean;
     menuTitle?: string;
@@ -17,7 +17,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: "/",
     component: () => import("@/pages/HomePage.vue"),
-    meta: { title: "首页", section: "工作台", description: "检索热门内容，查看搜索结果和数据状态。", order: 10 },
+    meta: { title: "首页", section: "工作台", order: 10 },
   },
   {
     path: "/search",
@@ -30,7 +30,6 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "电影详情",
       section: "媒体数据",
-      description: "查看、编辑电影资料，并处理 TMDB 同步差异。",
       activeMenu: "/library",
       hideMenu: true,
     },
@@ -41,7 +40,6 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "剧集详情",
       section: "媒体数据",
-      description: "查看剧集资料、季信息和远端同步差异。",
       activeMenu: "/library",
       hideMenu: true,
     },
@@ -52,7 +50,6 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "人物详情",
       section: "媒体数据",
-      description: "查看人物资料与关联作品信息。",
       activeMenu: "/",
       hideMenu: true,
     },
@@ -63,7 +60,6 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "本地库",
       section: "媒体数据",
-      description: "管理本地缓存媒体、手动新建记录并进入详情。",
       order: 30,
     },
   },
@@ -73,7 +69,6 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "日志",
       section: "系统管理",
-      description: "查看代理访问与 TMDB 回源请求日志。",
       order: 40,
     },
   },
@@ -83,7 +78,6 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "系统设置",
       section: "系统管理",
-      description: "配置网络代理、自动同步任务和执行日志。",
       order: 50,
     },
   },
@@ -92,7 +86,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: "/:pathMatch(.*)*",
     component: () => import("@/pages/NotFoundPage.vue"),
-    meta: { title: "页面不存在", section: "系统", description: "请返回已有菜单或检查访问地址。", hideMenu: true },
+    meta: { title: "页面不存在", section: "系统", hideMenu: true },
   },
 ];
 
@@ -102,6 +96,19 @@ const router = createRouter({
     return savedPosition ?? { top: 0 };
   },
   routes,
+});
+
+router.beforeEach(() => {
+  startGlobalPageLoading();
+  return true;
+});
+
+router.afterEach(() => {
+  stopGlobalPageLoading();
+});
+
+router.onError(() => {
+  stopGlobalPageLoading();
 });
 
 export default router;

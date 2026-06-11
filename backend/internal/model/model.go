@@ -183,6 +183,9 @@ type ProxyAccessLog struct {
 	RequestID string `gorm:"size:64;index" json:"request_id"`
 	Method    string `gorm:"size:16;index" json:"method"`
 
+	MediaType string `gorm:"size:16" json:"media_type"`
+	TmdbID    int    `json:"tmdb_id"`
+
 	Path       string `gorm:"type:text" json:"path"`
 	Query      string `gorm:"type:text" json:"query"`
 	RequestURI string `gorm:"type:text" json:"request_uri"`
@@ -240,19 +243,19 @@ func AutoMigrate(db *gorm.DB) error {
 // TablesExist 检查所有模型对应的表是否均已创建。
 // 用于启动时跳过不必要的 AutoMigrate，避免大量 pg_catalog 慢查询。
 func TablesExist(db *gorm.DB) bool {
-	tables := []string{
-		"movies",
-		"movie_lang_snapshots",
-		"tv_series",
-		"tv_lang_snapshots",
-		"persons",
-		"person_lang_snapshots",
-		"auto_sync_execution_logs",
-		"proxy_access_logs",
-		"tmdb_request_logs",
+	models := []interface{}{
+		&Movie{},
+		&MovieLangSnapshot{},
+		&TVSeries{},
+		&TVLangSnapshot{},
+		&Person{},
+		&PersonLangSnapshot{},
+		&AutoSyncExecutionLog{},
+		&ProxyAccessLog{},
+		&TmdbRequestLog{},
 	}
-	for _, t := range tables {
-		if !db.Migrator().HasTable(t) {
+	for _, modelValue := range models {
+		if !db.Migrator().HasTable(modelValue) {
 			return false
 		}
 	}
@@ -261,13 +264,36 @@ func TablesExist(db *gorm.DB) bool {
 
 // EnsureQueryIndexes 为常见列表查询补充索引
 func EnsureQueryIndexes(db *gorm.DB) error {
+	schemaStatements := []string{
+		"ALTER TABLE proxy_access_logs ADD COLUMN IF NOT EXISTS media_type varchar(16)",
+		"ALTER TABLE proxy_access_logs ADD COLUMN IF NOT EXISTS tmdb_id bigint",
+	}
+	for _, stmt := range schemaStatements {
+		if err := db.Exec(stmt).Error; err != nil {
+			return err
+		}
+	}
+
 	statements := []string{
-		"CREATE INDEX IF NOT EXISTS idx_movies_popularity_desc ON movies (popularity DESC)",
-		"CREATE INDEX IF NOT EXISTS idx_tv_series_popularity_desc ON tv_series (popularity DESC)",
-		"CREATE INDEX IF NOT EXISTS idx_movies_original_title ON movies (original_title)",
-		"CREATE INDEX IF NOT EXISTS idx_tv_series_original_name ON tv_series (original_name)",
+		"CREATE INDEX IF NOT EXISTS idx_movies_live_popularity_desc ON movies (popularity DESC) WHERE deleted_at IS NULL",
+		"CREATE INDEX IF NOT EXISTS idx_tv_series_live_popularity_desc ON tv_series (popularity DESC) WHERE deleted_at IS NULL",
+		"CREATE INDEX IF NOT EXISTS idx_movies_live_created_tmdb_desc ON movies (created_at DESC, tmdb_id DESC) WHERE deleted_at IS NULL",
+		"CREATE INDEX IF NOT EXISTS idx_tv_series_live_created_tmdb_desc ON tv_series (created_at DESC, tmdb_id DESC) WHERE deleted_at IS NULL",
+		"CREATE INDEX IF NOT EXISTS idx_movies_live_id_asc ON movies (id ASC) WHERE deleted_at IS NULL AND tmdb_id > 0",
+		"CREATE INDEX IF NOT EXISTS idx_tv_series_live_id_asc ON tv_series (id ASC) WHERE deleted_at IS NULL AND tmdb_id > 0",
+		"CREATE INDEX IF NOT EXISTS idx_people_live_id_asc ON people (id ASC) WHERE deleted_at IS NULL AND tmdb_id > 0",
 		"CREATE INDEX IF NOT EXISTS idx_proxy_access_logs_created_at_desc ON proxy_access_logs (created_at DESC)",
 		"CREATE INDEX IF NOT EXISTS idx_tmdb_request_logs_created_at_desc ON tmdb_request_logs (created_at DESC)",
+		"CREATE INDEX IF NOT EXISTS idx_proxy_access_logs_live_id_desc ON proxy_access_logs (id DESC) WHERE deleted_at IS NULL",
+		"CREATE INDEX IF NOT EXISTS idx_tmdb_request_logs_live_id_desc ON tmdb_request_logs (id DESC) WHERE deleted_at IS NULL",
+		"CREATE INDEX IF NOT EXISTS idx_proxy_access_logs_live_success_id_desc ON proxy_access_logs (id DESC) WHERE deleted_at IS NULL AND status_code >= 200 AND status_code < 400",
+		"CREATE INDEX IF NOT EXISTS idx_tmdb_request_logs_live_success_id_desc ON tmdb_request_logs (id DESC) WHERE deleted_at IS NULL AND status_code >= 200 AND status_code < 400",
+		"CREATE INDEX IF NOT EXISTS idx_proxy_access_logs_live_error_id_desc ON proxy_access_logs (id DESC) WHERE deleted_at IS NULL AND (status_code = 0 OR status_code < 200 OR status_code >= 400)",
+		"CREATE INDEX IF NOT EXISTS idx_tmdb_request_logs_live_error_id_desc ON tmdb_request_logs (id DESC) WHERE deleted_at IS NULL AND (status_code = 0 OR status_code < 200 OR status_code >= 400)",
+		"CREATE INDEX IF NOT EXISTS idx_proxy_access_logs_live_success_created_desc ON proxy_access_logs (created_at DESC) WHERE deleted_at IS NULL AND status_code >= 200 AND status_code < 400",
+		"CREATE INDEX IF NOT EXISTS idx_proxy_access_logs_hot_media ON proxy_access_logs (created_at DESC, media_type, tmdb_id) WHERE deleted_at IS NULL AND status_code >= 200 AND status_code < 400 AND media_type IN ('movie', 'tv') AND tmdb_id <> 0",
+		"CREATE INDEX IF NOT EXISTS idx_auto_sync_logs_live_id_desc ON auto_sync_execution_logs (id DESC) WHERE deleted_at IS NULL",
+		"CREATE INDEX IF NOT EXISTS idx_auto_sync_logs_live_status_id_desc ON auto_sync_execution_logs (status, id DESC) WHERE deleted_at IS NULL",
 	}
 
 	for _, stmt := range statements {

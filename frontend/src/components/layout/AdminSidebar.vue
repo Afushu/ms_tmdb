@@ -11,10 +11,9 @@ defineProps<{
 <template>
   <aside class="admin-sidebar" :class="{ 'admin-sidebar-open': open }" aria-label="主导航">
     <RouterLink to="/" class="admin-brand">
-      <span class="admin-brand-mark">MS</span>
+      <span class="admin-brand-mark" aria-hidden="true"></span>
       <span class="admin-brand-copy">
-        <strong>MS TMDB</strong>
-        <small>Media Service</small>
+        <strong>媒体数据管理</strong>
       </span>
     </RouterLink>
 

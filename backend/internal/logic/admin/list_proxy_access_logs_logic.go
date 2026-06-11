@@ -46,6 +46,24 @@ func (l *ListProxyAccessLogsLogic) ListProxyAccessLogs(req *types.AdminProxyAcce
 
 	var records []model.ProxyAccessLog
 	if err := query.
+		Select(
+			"id",
+			"request_id",
+			"method",
+			"path",
+			"query",
+			"request_uri",
+			"client_ip",
+			"user_agent",
+			"status_code",
+			"duration_ms",
+			"error_message",
+			"request_body_bytes",
+			"request_body_truncated",
+			"response_body_bytes",
+			"response_body_truncated",
+			"created_at",
+		).
 		Order("id DESC").
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).

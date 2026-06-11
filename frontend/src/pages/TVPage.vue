@@ -12,22 +12,17 @@ const TVSeasonManager = defineAsyncComponent(() => import("@/components/tv/TVSea
 const TVCastSection = defineAsyncComponent(() => import("@/components/tv/TVCastSection.vue"));
 const {
   loading,
-  error,
   detail,
   castMembers,
   creditsLoading,
   creditsLoaded,
-  creditsError,
   isEditing,
   saving,
   deleting,
-  saveError,
   saveMessage,
-  deleteError,
   checkingRemoteDiff,
   remoteDiffNotice,
   remoteDiffMessage,
-  remoteDiffError,
   remoteDiffDecision,
   showRemoteDiffDetails,
   showLocalOverrideDiffDetails,
@@ -42,15 +37,12 @@ const {
   selectedSeasonNumber,
   selectedSeasonDetail,
   seasonDetailLoading,
-  seasonDetailError,
   seasonLocalSaved,
   seasonLocalSaving,
   seasonLocalMessage,
   seasonEditorVisible,
   seasonEditorMode,
-  seasonFormError,
   episodeCreatorVisible,
-  episodeFormError,
   editingEpisodeNumber,
   genreOptions,
   genreKeyword,
@@ -122,7 +114,6 @@ watch(seasonLocalMessage, (message) => {
 
 <template>
   <p v-if="loading" class="card text-sm text-black/60">加载中...</p>
-  <p v-else-if="error" class="card text-sm text-red-600">{{ error }}</p>
 
   <template v-else-if="detail">
     <!-- 背景横幅 -->
@@ -194,7 +185,6 @@ watch(seasonLocalMessage, (message) => {
             :checking-remote-diff="checkingRemoteDiff"
             :remote-diff-notice="remoteDiffNotice"
             :remote-diff-message="remoteDiffMessage"
-            :remote-diff-error="remoteDiffError"
             :remote-diff-decision="remoteDiffDecision"
             :show-remote-diff-details="showRemoteDiffDetails"
             :show-local-override-diff-details="showLocalOverrideDiffDetails"
@@ -214,8 +204,6 @@ watch(seasonLocalMessage, (message) => {
             :genre-keyword="genreKeyword"
             :filtered-genre-options="filteredGenreOptions"
             :genre-options="genreOptions"
-            :save-error="saveError"
-            :delete-error="deleteError"
             :tv-status-options="tvStatusOptions"
             :tv-type-options="tvTypeOptions"
             :on-delete="deleteCurrentTV"
@@ -236,12 +224,9 @@ watch(seasonLocalMessage, (message) => {
             :season-editor-visible="seasonEditorVisible"
             :season-editor-mode="seasonEditorMode"
             :season-local-saved="seasonLocalSaved"
-            :season-form-error="seasonFormError"
-            :episode-form-error="episodeFormError"
             :season-form="seasonForm"
             :episode-creator-visible="episodeCreatorVisible"
             :episode-form="episodeForm"
-            :season-detail-error="seasonDetailError"
             :editing-episode-number="editingEpisodeNumber"
             :episode-edit-changed-count="episodeEditChangedCount"
             :episode-edit-field-class="episodeEditFieldClass"
@@ -267,7 +252,6 @@ watch(seasonLocalMessage, (message) => {
           <TVCastSection
             :credits-loading="creditsLoading"
             :credits-loaded="creditsLoaded"
-            :credits-error="creditsError"
             :cast-members="castMembers"
             :person-link="personLink"
             :on-refresh="() => loadTVCredits(true)"

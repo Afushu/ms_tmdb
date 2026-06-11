@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import type { AdminTab } from "./adminLayoutConfig";
+import { getMenuIconPaths } from "./adminLayoutConfig";
 
 defineProps<{
   currentFullPath: string;
@@ -95,7 +96,14 @@ onBeforeUnmount(() => {
       :class="{ 'admin-tab-active': tab.fullPath === currentFullPath }"
       @contextmenu="openMenu(tab, $event)"
     >
-      <RouterLink :to="tab.fullPath" class="admin-tab-link">{{ tab.title }}</RouterLink>
+      <RouterLink :to="tab.fullPath" class="admin-tab-link">
+        <span class="admin-tab-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path v-for="pathData in getMenuIconPaths(tab.path)" :key="pathData" :d="pathData" pathLength="24" />
+          </svg>
+        </span>
+        <span class="admin-tab-title">{{ tab.title }}</span>
+      </RouterLink>
       <button
         v-if="tab.path !== '/'"
         type="button"

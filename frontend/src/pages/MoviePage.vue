@@ -9,7 +9,6 @@ import { getMovieCredits, getMovieDetail, getMovieGenreList } from "@/api/movie"
 import { tmdbImg } from "@/api/tmdb";
 import { formatStatusLabel, movieStatusOptions } from "@/constants/mediaStatus";
 import { useToastNotice } from "@/composables/useToastNotice";
-import { resolveErrorMessage } from "@/utils/errors";
 import {
   normalizeCastMembers,
   normalizeGenreOptions,
@@ -56,22 +55,17 @@ type RemoteDiffDecision = "unknown" | "has_diff_pending" | "keep_local" | "overw
 const route = useRoute();
 const router = useRouter();
 const loading = ref(false);
-const error = ref("");
 const detail = ref<MovieDetail | null>(null);
 const castMembers = ref<MovieCastMember[]>([]);
 const creditsLoading = ref(false);
 const creditsLoaded = ref(false);
-const creditsError = ref("");
 const isEditing = ref(false);
 const saving = ref(false);
 const deleting = ref(false);
-const saveError = ref("");
-const deleteError = ref("");
 const comparedRemoteId = ref<number | null>(null);
 const checkingRemoteDiff = ref(false);
 const remoteDiffNotice = ref<RemoteDiffNotice | null>(null);
 const remoteDiffMessage = ref("");
-const remoteDiffError = ref("");
 const remoteDiffDecision = ref<RemoteDiffDecision>("unknown");
 const showRemoteDiffDetails = ref(false);
 const showLocalOverrideDiffDetails = ref(false);
@@ -181,7 +175,6 @@ function resetEditForm(data: unknown) {
 function resetRemoteDiffState() {
   remoteDiffNotice.value = null;
   remoteDiffMessage.value = "";
-  remoteDiffError.value = "";
   remoteDiffDecision.value = "unknown";
   showRemoteDiffDetails.value = false;
   showLocalOverrideDiffDetails.value = false;
@@ -194,7 +187,6 @@ function resetCreditsState() {
   castMembers.value = [];
   creditsLoading.value = false;
   creditsLoaded.value = false;
-  creditsError.value = "";
 }
 
 function stopDeferredLoads() {
@@ -234,7 +226,6 @@ function enterEditMode() {
   if (!detail.value) return;
   resetEditForm(detail.value);
   genreKeyword.value = "";
-  saveError.value = "";
   isEditing.value = true;
   if (!genreOptionsLoaded.value) {
     void loadGenreOptions();
@@ -246,7 +237,6 @@ function cancelEditMode() {
     resetEditForm(detail.value);
   }
   genreKeyword.value = "";
-  saveError.value = "";
   isEditing.value = false;
 }
 
@@ -272,7 +262,6 @@ function askTmdbRiskConfirm(currentId: number, nextId: number): Promise<boolean>
 
 async function deleteCurrentMovie() {
   if (!movieId.value) {
-    deleteError.value = "无效电影 ID";
     return;
   }
   deleteConfirmModalVisible.value = true;
@@ -284,13 +273,11 @@ function closeDeleteConfirmModal() {
 
 async function confirmDeleteCurrentMovie() {
   if (!movieId.value) {
-    deleteError.value = "无效电影 ID";
     deleteConfirmModalVisible.value = false;
     return;
   }
 
   deleting.value = true;
-  deleteError.value = "";
   try {
     deleteConfirmModalVisible.value = false;
     await deleteMovie(movieId.value);
@@ -298,8 +285,7 @@ async function confirmDeleteCurrentMovie() {
       path: "/library",
       query: { tab: "movie" },
     });
-  } catch (err: unknown) {
-    deleteError.value = resolveErrorMessage(err, "删除失败");
+  } catch { /* handled by global toast */
   } finally {
     deleting.value = false;
   }
@@ -313,7 +299,6 @@ async function loadMovieCredits(force = false) {
   const requestSeq = ++creditsReqSeq;
   const targetId = movieId.value;
   creditsLoading.value = true;
-  creditsError.value = "";
   try {
     const resp = await getMovieCredits(targetId, "zh-CN", { force });
     if (requestSeq !== creditsReqSeq || targetId !== movieId.value) {
@@ -321,11 +306,7 @@ async function loadMovieCredits(force = false) {
     }
     castMembers.value = normalizeCastMembers(resp.data);
     creditsLoaded.value = true;
-  } catch (err: unknown) {
-    if (requestSeq !== creditsReqSeq || targetId !== movieId.value) {
-      return;
-    }
-    creditsError.value = resolveErrorMessage(err, "加载演员失败");
+  } catch { /* handled by global toast */
   } finally {
     if (requestSeq === creditsReqSeq) {
       creditsLoading.value = false;
@@ -342,13 +323,11 @@ async function checkRemoteDiffAndPrompt(force = false) {
     showRemoteDiffDetails.value = false;
     showLocalOverrideDiffDetails.value = false;
     remoteDiffDecision.value = "keep_local";
-    remoteDiffError.value = "";
     remoteDiffMessage.value = "本地新建条目不参与 TMDB 远程差异检测";
     comparedRemoteId.value = movieId.value;
     return;
   }
   checkingRemoteDiff.value = true;
-  remoteDiffError.value = "";
   try {
     const resp = await compareMovieRemote(movieId.value);
     const remoteFields = Array.isArray(resp.data?.diff_fields) ? resp.data.diff_fields : [];
@@ -396,8 +375,7 @@ async function checkRemoteDiffAndPrompt(force = false) {
     remoteDiffMessage.value = "";
     remoteDiffDecision.value = "has_diff_pending";
     comparedRemoteId.value = movieId.value;
-  } catch (err: unknown) {
-    remoteDiffError.value = resolveErrorMessage(err, "远程差异检测失败");
+  } catch { /* handled by global toast */
   } finally {
     checkingRemoteDiff.value = false;
   }
@@ -408,7 +386,6 @@ function keepLocalData() {
   showRemoteDiffDetails.value = false;
   showLocalOverrideDiffDetails.value = false;
   remoteDiffDecision.value = "keep_local";
-  remoteDiffError.value = "";
   remoteDiffMessage.value = "已保留本地数据，已跳过本次远程差异处理";
 }
 
@@ -420,13 +397,11 @@ function handleSynced() {
 async function loadData(options: { force?: boolean; checkRemoteDiff?: boolean } = {}) {
   const { force = false, checkRemoteDiff = true } = options;
   if (!movieId.value) {
-    error.value = "无效电影 ID";
     return;
   }
   const requestSeq = ++loadReqSeq;
   stopDeferredLoads();
   loading.value = true;
-  error.value = "";
   resetRemoteDiffState();
   resetCreditsState();
   try {
@@ -444,10 +419,7 @@ async function loadData(options: { force?: boolean; checkRemoteDiff?: boolean } 
       await checkRemoteDiffAndPrompt();
     }
     scheduleDeferredLoadsForDetail();
-  } catch (err: unknown) {
-    if (requestSeq === loadReqSeq) {
-      error.value = resolveErrorMessage(err, "加载失败");
-    }
+  } catch { /* handled by global toast */
   } finally {
     if (requestSeq === loadReqSeq) {
       loading.value = false;
@@ -505,22 +477,18 @@ function buildDiffDetailsByFields(
 
 async function saveMovieChanges() {
   if (!movieId.value) {
-    saveError.value = "无效电影 ID";
     return;
   }
   const runtime = parseOptionalInt(editForm.value.runtime);
   if (editForm.value.runtime.trim() && runtime === undefined) {
-    saveError.value = "时长必须是数字";
     return;
   }
   const voteAverage = parseOptionalFloat(editForm.value.vote_average);
   if (editForm.value.vote_average.trim() && voteAverage === undefined) {
-    saveError.value = "评分必须是数字";
     return;
   }
   const popularity = parseOptionalFloat(editForm.value.popularity);
   if (editForm.value.popularity.trim() && popularity === undefined) {
-    saveError.value = "热度必须是数字";
     return;
   }
 
@@ -529,7 +497,6 @@ async function saveMovieChanges() {
   const tmdbChanged = nextTmdbID !== undefined && nextTmdbID !== movieId.value;
   if (tmdbChanged) {
     if (nextTmdbID === undefined || nextTmdbID <= 0) {
-      saveError.value = "TMDB ID 必须是大于 0 的整数";
       return;
     }
     const riskConfirm = await askTmdbRiskConfirm(movieId.value, nextTmdbID);
@@ -539,7 +506,6 @@ async function saveMovieChanges() {
   }
 
   saving.value = true;
-  saveError.value = "";
   try {
     const payload: Record<string, unknown> = {
       title: editForm.value.title.trim(),
@@ -576,8 +542,7 @@ async function saveMovieChanges() {
       return;
     }
     await loadData({ force: true });
-  } catch (err: unknown) {
-    saveError.value = resolveErrorMessage(err, "保存失败");
+  } catch { /* handled by global toast */
   } finally {
     saving.value = false;
   }
@@ -597,7 +562,6 @@ onBeforeUnmount(() => {
 
 <template>
   <p v-if="loading" class="card text-sm text-black/60">加载中...</p>
-  <p v-else-if="error" class="card text-sm text-red-600">{{ error }}</p>
 
   <template v-else-if="detail">
     <!-- 背景横幅 -->
@@ -672,7 +636,6 @@ onBeforeUnmount(() => {
               checkingRemoteDiff ||
               remoteDiffNotice ||
               remoteDiffMessage ||
-              remoteDiffError ||
               remoteDiffDecision === 'no_diff'
             "
             class="detail-alert"
@@ -749,9 +712,6 @@ onBeforeUnmount(() => {
             </p>
             <p v-if="!checkingRemoteDiff && !remoteDiffNotice && remoteDiffMessage" class="mt-3 text-xs text-green-700">
               {{ remoteDiffMessage }}
-            </p>
-            <p v-if="remoteDiffError" class="mt-1 text-xs text-red-600">
-              {{ remoteDiffError }}
             </p>
           </div>
 
@@ -887,11 +847,6 @@ onBeforeUnmount(() => {
                 <button class="btn-soft disabled:opacity-60" :disabled="saving" @click="cancelEditMode">取消</button>
               </div>
             </div>
-
-            <div class="mt-2">
-              <span v-if="saveError" class="text-xs text-red-600">{{ saveError }}</span>
-              <span v-if="deleteError" class="ml-2 text-xs text-red-600">{{ deleteError }}</span>
-            </div>
           </div>
 
           <!-- 演员 -->
@@ -907,7 +862,6 @@ onBeforeUnmount(() => {
               </button>
             </div>
             <p v-if="creditsLoading" class="text-xs text-black/55">正在加载演员信息...</p>
-            <p v-else-if="creditsError" class="text-xs text-red-600">{{ creditsError }}</p>
             <p v-else-if="creditsLoaded && !castMembers.length" class="text-xs text-black/55">暂无演员数据</p>
             <div v-else-if="castMembers.length" class="cast-grid">
               <div v-for="c in castMembers" :key="c.id" class="cast-card">

@@ -4,7 +4,6 @@ import type { AdminSyncMode, AdminSyncPayload, AdminSyncResp } from "@/api/admin
 import { syncMovie, syncPerson, syncTV } from "@/api/admin";
 import ToastNotice from "@/components/common/ToastNotice.vue";
 import { useToastNotice } from "@/composables/useToastNotice";
-import { resolveErrorMessage } from "@/utils/errors";
 
 const props = defineProps<{
   mediaType: "movie" | "tv" | "person";
@@ -21,7 +20,6 @@ const emit = defineEmits<{
 const syncMode = ref<AdminSyncMode>("update_unmodified");
 const syncing = ref(false);
 const diffChecking = ref(false);
-const syncError = ref("");
 const syncMessage = ref("");
 const changedFields = ref<string[]>([]);
 const selectedOverwriteFields = ref<string[]>([]);
@@ -125,15 +123,13 @@ async function loadChangedFields() {
   }
   if (!canSync.value || diffChecking.value) return;
   diffChecking.value = true;
-  syncError.value = "";
   try {
     const resp = await executeSync({ mode: "preview" });
     const data = resp.data as AdminSyncResp;
     changedFields.value = Array.isArray(data.changed_fields) ? data.changed_fields : [];
     selectedOverwriteFields.value = [...changedFields.value];
     syncMessage.value = data.message || `检测到 ${changedFields.value.length} 个变化字段`;
-  } catch (err: unknown) {
-    syncError.value = resolveErrorMessage(err, "检测变化字段失败");
+  } catch {
   } finally {
     diffChecking.value = false;
   }
@@ -142,7 +138,6 @@ async function loadChangedFields() {
 async function applySync() {
   if (!canSync.value || syncing.value) return;
   syncing.value = true;
-  syncError.value = "";
   syncMessage.value = "";
   try {
     if (syncMode.value === "selective" && changedFields.value.length === 0 && !usingPresetChangedFields.value) {
@@ -159,15 +154,13 @@ async function applySync() {
     selectedOverwriteFields.value = changedFields.value.filter((field) => !data.overwritten_fields?.includes(field));
     showToastNotice(data.message || "同步完成");
     emit("synced");
-  } catch (err: unknown) {
-    syncError.value = resolveErrorMessage(err, "同步失败");
+  } catch {
   } finally {
     syncing.value = false;
   }
 }
 
 watch(syncMode, (mode) => {
-  syncError.value = "";
   if (mode !== "selective") {
     changedFields.value = [];
     selectedOverwriteFields.value = [];
@@ -253,7 +246,6 @@ watch(
 
     <div class="mt-2">
       <span v-if="syncMessage" class="text-xs text-green-700">{{ syncMessage }}</span>
-      <span v-if="syncError" class="text-xs text-red-600">{{ syncError }}</span>
     </div>
 
     <ToastNotice :visible="toastVisible" :message="toastText" :tone="toastTone" @close="closeToastNotice" />

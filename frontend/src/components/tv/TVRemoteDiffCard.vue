@@ -8,7 +8,6 @@ defineProps<{
   checkingRemoteDiff: boolean;
   remoteDiffNotice: RemoteDiffNotice | null;
   remoteDiffMessage: string;
-  remoteDiffError: string;
   remoteDiffDecision: RemoteDiffDecision;
   showRemoteDiffDetails: boolean;
   showLocalOverrideDiffDetails: boolean;
@@ -24,7 +23,7 @@ defineProps<{
 <template>
   <div
     v-if="
-      checkingRemoteDiff || remoteDiffNotice || remoteDiffMessage || remoteDiffError || remoteDiffDecision === 'no_diff'
+      checkingRemoteDiff || remoteDiffNotice || remoteDiffMessage || remoteDiffDecision === 'no_diff'
     "
     class="detail-alert"
   >
@@ -87,9 +86,6 @@ defineProps<{
     </p>
     <p v-if="!checkingRemoteDiff && !remoteDiffNotice && remoteDiffMessage" class="mt-3 text-xs text-green-700">
       {{ remoteDiffMessage }}
-    </p>
-    <p v-if="remoteDiffError" class="mt-1 text-xs text-red-600">
-      {{ remoteDiffError }}
     </p>
   </div>
 </template>

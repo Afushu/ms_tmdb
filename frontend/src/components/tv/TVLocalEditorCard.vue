@@ -17,8 +17,6 @@ const props = defineProps<{
   genreKeyword: string;
   filteredGenreOptions: GenreOption[];
   genreOptions: GenreOption[];
-  saveError: string;
-  deleteError: string;
   tvStatusOptions: ReadonlyArray<SelectOption>;
   tvTypeOptions: ReadonlyArray<SelectOption>;
   onDelete: () => void;
@@ -145,11 +143,6 @@ const genreKeywordModel = computed({
         </button>
         <button class="btn-soft disabled:opacity-60" :disabled="saving" @click="onCancel">取消</button>
       </div>
-    </div>
-
-    <div class="mt-2">
-      <span v-if="saveError" class="text-xs text-red-600">{{ saveError }}</span>
-      <span v-if="deleteError" class="ml-2 text-xs text-red-600">{{ deleteError }}</span>
     </div>
   </div>
 </template>

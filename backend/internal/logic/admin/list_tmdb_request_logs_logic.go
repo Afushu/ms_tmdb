@@ -43,6 +43,21 @@ func (l *ListTmdbRequestLogsLogic) ListTmdbRequestLogs(req *types.AdminTmdbReque
 
 	var records []model.TmdbRequestLog
 	if err := query.
+		Select(
+			"id",
+			"request_id",
+			"method",
+			"path",
+			"url",
+			"status_code",
+			"duration_ms",
+			"error_message",
+			"request_body_bytes",
+			"request_body_truncated",
+			"response_body_bytes",
+			"response_body_truncated",
+			"created_at",
+		).
 		Order("id DESC").
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
