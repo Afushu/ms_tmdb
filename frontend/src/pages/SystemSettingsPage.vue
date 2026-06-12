@@ -8,6 +8,7 @@ import {
   getAutoSyncLogs,
   getAutoSyncSettings,
   getProxySettings,
+  getVersion,
   runAutoSyncNow,
   updateAutoSyncSettings,
   updateProxySettings,
@@ -20,6 +21,9 @@ import { useToastNotice } from "@/composables/useToastNotice";
 
 const loading = ref(false);
 const appVersion = __APP_VERSION__;
+const backendVersion = ref<string>("");
+const backendGo = ref<string>("");
+const backendArch = ref<string>("");
 
 const proxySaving = ref(false);
 const proxyEnabled = ref(false);
@@ -398,7 +402,11 @@ async function loadSettings() {
   loading.value = true;
 
   try {
-    const [proxyResp, autoSyncResp] = await Promise.all([getProxySettings(), getAutoSyncSettings()]);
+    const [proxyResp, autoSyncResp, versionResp] = await Promise.all([
+      getProxySettings(),
+      getAutoSyncSettings(),
+      getVersion().catch(() => null),
+    ]);
     const proxyData = proxyResp.data;
     proxyEnabled.value = !!proxyData.enabled;
     proxyURL.value = proxyData.proxy_url ?? "";
@@ -413,6 +421,12 @@ async function loadSettings() {
     syncBatchSize.value = normalizeNumber(Number(syncData.batch_size), 1, 500);
     syncStartDelaySecond.value = normalizeNumber(Number(syncData.start_delay_second), 0, 3600);
     syncRunning.value = !!syncData.running;
+
+    if (versionResp && versionResp.data) {
+      backendVersion.value = versionResp.data.version || "";
+      backendGo.value = versionResp.data.go || "";
+      backendArch.value = versionResp.data.arch || "";
+    }
   } catch {
     // errors shown via global toast
   } finally {
@@ -544,9 +558,14 @@ onMounted(reloadAll);
         <p>{{ latestLogTimeText }}</p>
       </article>
       <article class="settings-summary-card">
-        <span class="settings-summary-label">当前版本</span>
+        <span class="settings-summary-label">前端版本</span>
         <strong>v{{ appVersion || "-" }}</strong>
-        <p>前端构建版本</p>
+        <p>构建时注入</p>
+      </article>
+      <article class="settings-summary-card">
+        <span class="settings-summary-label">后端版本</span>
+        <strong>v{{ backendVersion || "-" }}</strong>
+        <p>{{ backendGo ? backendGo + " / " : "" }}{{ backendArch || "" }}</p>
       </article>
     </section>
 

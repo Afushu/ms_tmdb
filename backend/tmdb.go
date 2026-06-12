@@ -39,6 +39,9 @@ func main() {
 	conf.MustLoad(*configFile, &c)
 	c.ConfigFile = *configFile
 
+	// 同步版本号到 admin logic（通过 ldflags 注入的 main.Version 在这里传递）
+	adminlogic.AppVersion = Version
+
 	server := rest.MustNewServer(c.RestConf)
 	logging.SetupConsoleWriter(c.Log.Mode)
 	response.RegisterErrorHandler()

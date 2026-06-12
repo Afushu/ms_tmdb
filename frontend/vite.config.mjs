@@ -7,7 +7,13 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const packageJson = JSON.parse(readFileSync(path.resolve(__dirname, "package.json"), "utf-8"));
-const appVersion = process.env.VITE_APP_VERSION || packageJson.version || "";
+
+// 版本号优先级: VITE_APP_VERSION 环境变量 > package.json.version > "dev"
+const appVersion = (process.env.VITE_APP_VERSION && process.env.VITE_APP_VERSION.trim()) ||
+  packageJson.version ||
+  "dev";
+
+console.log(`[vite] App version: ${appVersion}`);
 
 export default defineConfig({
   plugins: [vue()],
