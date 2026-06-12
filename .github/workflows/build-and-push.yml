@@ -24,7 +24,36 @@ env:
   IMAGE_NAME: ${{ vars.DOCKERHUB_IMAGE_NAME || github.event.repository.name }}
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      app_version: ${{ steps.app-version.outputs.APP_VERSION }}
+      git_tag: ${{ steps.git-tag.outputs.GIT_TAG }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Prepare Docker build version
+        id: app-version
+        run: |
+          APP_VERSION="$(TZ=Asia/Shanghai date +%Y%m%d%H%M)"
+          echo "APP_VERSION=${APP_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Docker build version: ${APP_VERSION}"
+
+      - name: Extract git tag (if available)
+        id: git-tag
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            echo "GIT_TAG=${TAG}" >> "$GITHUB_OUTPUT"
+            echo "Git tag detected: ${TAG}"
+          else
+            echo "GIT_TAG=" >> "$GITHUB_OUTPUT"
+            echo "No git tag detected"
+          fi
+
   frontend:
+    needs: prepare
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -61,16 +90,9 @@ jobs:
       - name: Lint frontend
         run: pnpm -C frontend run lint
 
-      - name: Prepare Docker build version
-        id: app-version
-        run: |
-          APP_VERSION="$(TZ=Asia/Shanghai date +%Y%m%d%H%M)"
-          echo "APP_VERSION=${APP_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Docker build version: ${APP_VERSION}"
-
       - name: Build frontend
         env:
-          VITE_APP_VERSION: ${{ steps.app-version.outputs.APP_VERSION }}
+          VITE_APP_VERSION: ${{ needs.prepare.outputs.app_version }}
         run: pnpm -C frontend run build
 
       - name: Upload dist
@@ -81,6 +103,7 @@ jobs:
           retention-days: 3
 
   backend:
+    needs: prepare
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -106,10 +129,11 @@ jobs:
           GOOS: linux
           GOARCH: ${{ matrix.arch }}
           CGO_ENABLED: 0
+          APP_VERSION: ${{ needs.prepare.outputs.app_version }}
         working-directory: backend
         run: |
           mkdir -p ../build-artifacts/backend/${{ matrix.arch }}
-          go build -trimpath -ldflags="-s -w" -o ../build-artifacts/backend/${{ matrix.arch }}/tmdb ./tmdb.go
+          go build -trimpath -ldflags="-s -w -X main.Version=${APP_VERSION}" -o ../build-artifacts/backend/${{ matrix.arch }}/tmdb ./tmdb.go
 
       - name: Upload backend (${{ matrix.arch }})
         uses: actions/upload-artifact@v7
@@ -119,8 +143,11 @@ jobs:
           retention-days: 3
 
   build:
-    needs: [frontend, backend]
+    needs: [prepare, frontend, backend]
     runs-on: ubuntu-latest
+    env:
+      APP_VERSION: ${{ needs.prepare.outputs.app_version }}
+      GIT_TAG: ${{ needs.prepare.outputs.git_tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -163,13 +190,17 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest
+      - name: Determine image tags
+        id: tags
+        run: |
+          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}"
+          TAGS="${IMAGE}:latest"
+          TAGS="${TAGS},${IMAGE}:${APP_VERSION}"
+          if [[ -n "${GIT_TAG}" ]]; then
+            TAGS="${TAGS},${IMAGE}:${GIT_TAG}"
+          fi
+          echo "TAGS=${TAGS}" >> "$GITHUB_OUTPUT"
+          echo "Image tags: ${TAGS}"
 
       - name: Build and push Docker images
         uses: docker/build-push-action@v7
@@ -180,5 +211,10 @@ jobs:
           push: true
           provenance: false
           sbom: false
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ env.GIT_TAG != '' && env.GIT_TAG || env.APP_VERSION }}
+          tags: ${{ steps.tags.outputs.TAGS }}
+          labels: |
+            org.opencontainers.image.title=ms_tmdb
+            org.opencontainers.image.description=TMDB proxy and local enhancement platform runtime image
+            org.opencontainers.image.version=${{ env.GIT_TAG != '' && env.GIT_TAG || env.APP_VERSION }}
