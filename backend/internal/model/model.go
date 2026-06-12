@@ -2,7 +2,6 @@ package model
 
 import (
 	"crypto/sha1"
-	"database/sql"
 	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
@@ -258,8 +257,13 @@ func RunStartupMigrations(db *gorm.DB) error {
 		},
 	}
 
+	storedVersions, err := readStoredMigrationVersions(db, migrations)
+	if err != nil {
+		return err
+	}
+
 	for _, migration := range migrations {
-		if err := runStartupMigrationIfNeeded(db, migration); err != nil {
+		if err := runStartupMigrationIfNeeded(db, migration, storedVersions[migration.key]); err != nil {
 			return err
 		}
 	}
@@ -281,11 +285,7 @@ const (
 
 var errStartupMigrationDeferred = errors.New("启动迁移部分依赖暂不可用")
 
-func runStartupMigrationIfNeeded(db *gorm.DB, migration startupMigration) error {
-	storedVersion, err := readStoredMigrationVersion(db, migration.key)
-	if err != nil {
-		return err
-	}
+func runStartupMigrationIfNeeded(db *gorm.DB, migration startupMigration, storedVersion string) error {
 	if storedVersion == migration.version {
 		return nil
 	}
@@ -301,13 +301,27 @@ func runStartupMigrationIfNeeded(db *gorm.DB, migration startupMigration) error 
 	return writeStoredMigrationVersion(db, migration.key, migration.version)
 }
 
-func readStoredMigrationVersion(db *gorm.DB, key string) (string, error) {
-	var version string
-	err := db.Raw("SELECT version FROM schema_migrations WHERE key = ?", key).Row().Scan(&version)
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", nil
+func readStoredMigrationVersions(db *gorm.DB, migrations []startupMigration) (map[string]string, error) {
+	result := make(map[string]string, len(migrations))
+	keys := make([]string, 0, len(migrations))
+	for _, migration := range migrations {
+		keys = append(keys, migration.key)
 	}
-	return version, err
+	if len(keys) == 0 {
+		return result, nil
+	}
+
+	var rows []struct {
+		Key     string
+		Version string
+	}
+	if err := db.Raw("SELECT key, version FROM schema_migrations WHERE key IN ?", keys).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		result[row.Key] = row.Version
+	}
+	return result, nil
 }
 
 func writeStoredMigrationVersion(db *gorm.DB, key string, version string) error {
@@ -414,6 +428,10 @@ func queryIndexStatements() []string {
 		"CREATE INDEX IF NOT EXISTS idx_people_live_id_asc ON people (id ASC) WHERE deleted_at IS NULL AND tmdb_id > 0",
 		"CREATE INDEX IF NOT EXISTS idx_proxy_access_logs_created_at_desc ON proxy_access_logs (created_at DESC)",
 		"CREATE INDEX IF NOT EXISTS idx_tmdb_request_logs_created_at_desc ON tmdb_request_logs (created_at DESC)",
+		"CREATE INDEX IF NOT EXISTS idx_proxy_access_logs_cleanup ON proxy_access_logs (created_at ASC, id ASC)",
+		"CREATE INDEX IF NOT EXISTS idx_tmdb_request_logs_cleanup ON tmdb_request_logs (created_at ASC, id ASC)",
+		"CREATE INDEX IF NOT EXISTS idx_proxy_access_logs_deleted_id_desc ON proxy_access_logs (deleted_at, id DESC)",
+		"CREATE INDEX IF NOT EXISTS idx_tmdb_request_logs_deleted_id_desc ON tmdb_request_logs (deleted_at, id DESC)",
 		"CREATE INDEX IF NOT EXISTS idx_proxy_access_logs_live_id_desc ON proxy_access_logs (id DESC) WHERE deleted_at IS NULL",
 		"CREATE INDEX IF NOT EXISTS idx_tmdb_request_logs_live_id_desc ON tmdb_request_logs (id DESC) WHERE deleted_at IS NULL",
 		"CREATE INDEX IF NOT EXISTS idx_proxy_access_logs_live_success_id_desc ON proxy_access_logs (id DESC) WHERE deleted_at IS NULL AND status_code >= 200 AND status_code < 400",
@@ -424,6 +442,8 @@ func queryIndexStatements() []string {
 		"CREATE INDEX IF NOT EXISTS idx_proxy_access_logs_hot_media ON proxy_access_logs (created_at DESC, media_type, tmdb_id) WHERE deleted_at IS NULL AND status_code >= 200 AND status_code < 400 AND media_type IN ('movie', 'tv') AND tmdb_id <> 0",
 		"CREATE INDEX IF NOT EXISTS idx_auto_sync_logs_live_id_desc ON auto_sync_execution_logs (id DESC) WHERE deleted_at IS NULL",
 		"CREATE INDEX IF NOT EXISTS idx_auto_sync_logs_live_status_id_desc ON auto_sync_execution_logs (status, id DESC) WHERE deleted_at IS NULL",
+		"CREATE INDEX IF NOT EXISTS idx_auto_sync_logs_deleted_id_desc ON auto_sync_execution_logs (deleted_at, id DESC)",
+		"CREATE INDEX IF NOT EXISTS idx_auto_sync_logs_deleted_status_id_desc ON auto_sync_execution_logs (deleted_at, status, id DESC)",
 	}
 }
 

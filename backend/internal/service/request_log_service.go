@@ -259,21 +259,25 @@ func (s *RequestLogService) CleanupExpired(ctx context.Context) error {
 
 func cleanupExpiredRequestLogTable(db *gorm.DB, tableName string, cutoff time.Time) error {
 	for {
-		result := db.Exec(`
-WITH expired AS (
-  SELECT id
-  FROM `+tableName+`
-  WHERE created_at < ?
-  ORDER BY created_at ASC, id ASC
-  LIMIT ?
-)
-DELETE FROM `+tableName+`
-WHERE id IN (SELECT id FROM expired)
-`, cutoff, defaultCleanupBatchSize)
+		var ids []uint
+		if err := db.
+			Table(tableName).
+			Select("id").
+			Where("created_at < ?", cutoff).
+			Order("created_at ASC, id ASC").
+			Limit(defaultCleanupBatchSize).
+			Scan(&ids).Error; err != nil {
+			return err
+		}
+		if len(ids) == 0 {
+			return nil
+		}
+
+		result := db.Exec("DELETE FROM "+tableName+" WHERE id IN ?", ids)
 		if result.Error != nil {
 			return result.Error
 		}
-		if result.RowsAffected < int64(defaultCleanupBatchSize) {
+		if len(ids) < defaultCleanupBatchSize {
 			return nil
 		}
 	}

@@ -10,6 +10,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const requestLogListOrder = "deleted_at ASC, id DESC"
+
 func applyRequestLogStatusFilter(query *gorm.DB, status string) *gorm.DB {
 	switch strings.ToLower(strings.TrimSpace(status)) {
 	case "success":
@@ -47,6 +49,29 @@ func applyRequestLogKeywordFilter(query *gorm.DB, keyword string, columns ...str
 func escapeLikeKeyword(keyword string) string {
 	replacer := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 	return replacer.Replace(keyword)
+}
+
+func requestLogPageLimit(pageSize int) int {
+	return pageSize + 1
+}
+
+func requestLogVisibleCount(pageSize int, loaded int) int {
+	if loaded > pageSize {
+		return pageSize
+	}
+	return loaded
+}
+
+// requestLogWindowTotal 返回当前分页窗口能证明的总量下界。
+// 请求日志表增长快，精确 COUNT 会随表大小线性变慢；多取一条即可判断是否允许翻到下一页。
+func requestLogWindowTotal(page int, pageSize int, loaded int) int64 {
+	offset := (page - 1) * pageSize
+	visible := requestLogVisibleCount(pageSize, loaded)
+	total := int64(offset + visible)
+	if loaded > pageSize {
+		return total + 1
+	}
+	return total
 }
 
 func proxyAccessLogItem(record model.ProxyAccessLog) types.AdminProxyAccessLogItem {

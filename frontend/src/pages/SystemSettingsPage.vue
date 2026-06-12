@@ -193,6 +193,26 @@ function formatFieldList(fields: string[] | undefined) {
   return fields.join("、");
 }
 
+function visibleFieldList(fields: string[] | undefined) {
+  return Array.isArray(fields) ? fields.filter((field) => !!field) : [];
+}
+
+function hasFieldList(fields: string[] | undefined) {
+  return visibleFieldList(fields).length > 0;
+}
+
+function hasLocalFieldSummary(entry: {
+  changed_fields?: string[];
+  overwritten_fields?: string[];
+  kept_local_fields?: string[];
+}) {
+  return hasFieldList(entry.changed_fields) || hasFieldList(entry.overwritten_fields) || hasFieldList(entry.kept_local_fields);
+}
+
+function fieldChangeCount(changes: Array<{ field: string; diff_type: string; before: string; after: string }> | undefined) {
+  return Array.isArray(changes) ? changes.length : 0;
+}
+
 function formatFieldChanges(
   changes: Array<{ field: string; diff_type: string; before: string; after: string }> | undefined,
 ) {
@@ -837,15 +857,18 @@ onMounted(reloadAll);
                 <span class="badge">{{ activeLogDetail.synced }} 条</span>
               </div>
               <div class="table-shell settings-table-shell">
-                <table class="min-w-full text-sm settings-detail-table">
+                <table class="min-w-full text-sm settings-detail-table settings-detail-table-fixed settings-detail-success-table">
+                  <colgroup>
+                    <col class="settings-detail-col-media" />
+                    <col class="settings-detail-col-remote" />
+                    <col class="settings-detail-col-local" />
+                    <col class="settings-detail-col-message" />
+                  </colgroup>
                   <thead class="table-head text-left text-black/70">
                     <tr>
-                      <th class="px-3 py-2 font-medium">类型</th>
-                      <th class="px-3 py-2 font-medium">名称</th>
-                      <th class="px-3 py-2 font-medium">TMDB ID</th>
+                      <th class="px-3 py-2 font-medium">媒体</th>
                       <th class="px-3 py-2 font-medium">远端差异</th>
                       <th class="px-3 py-2 font-medium">本地处理</th>
-                      <th class="px-3 py-2 font-medium">字段前后</th>
                       <th class="px-3 py-2 font-medium">信息</th>
                     </tr>
                   </thead>
@@ -855,28 +878,50 @@ onMounted(reloadAll);
                       :key="`synced-${idx}-${entry.media_type}-${entry.tmdb_id}`"
                       class="table-row-hover"
                     >
-                      <td class="px-3 py-2 whitespace-nowrap">{{ formatMediaType(entry.media_type) }}</td>
-                      <td class="px-3 py-2 min-w-40">
-                        <p class="settings-table-primary line-clamp-2">{{ entry.name || "-" }}</p>
-                      </td>
-                      <td class="px-3 py-2 whitespace-nowrap">{{ entry.tmdb_id || "-" }}</td>
-                      <td class="px-3 py-2 min-w-44">
-                        <p class="settings-chip-list">{{ formatFieldList(entry.remote_diff_fields) }}</p>
-                      </td>
-                      <td class="px-3 py-2 min-w-56">
-                        <div class="settings-field-stack">
-                          <p><span>变更</span>{{ formatFieldList(entry.changed_fields) }}</p>
-                          <p><span>覆盖</span>{{ formatFieldList(entry.overwritten_fields) }}</p>
-                          <p><span>保留</span>{{ formatFieldList(entry.kept_local_fields) }}</p>
+                      <td class="px-3 py-2">
+                        <div class="settings-media-cell">
+                          <span class="settings-media-type">{{ formatMediaType(entry.media_type) }}</span>
+                          <div>
+                            <p class="settings-table-primary line-clamp-2">{{ entry.name || "-" }}</p>
+                            <p class="settings-table-meta">TMDB ID {{ entry.tmdb_id || "-" }}</p>
+                          </div>
                         </div>
                       </td>
-                      <td class="px-3 py-2 min-w-72">
-                        <pre class="settings-diff-pre">{{ formatFieldChanges(entry.field_changes) }}</pre>
+                      <td class="px-3 py-2">
+                        <div v-if="visibleFieldList(entry.remote_diff_fields).length" class="settings-chip-list">
+                          <span v-for="field in visibleFieldList(entry.remote_diff_fields)" :key="field">{{ field }}</span>
+                        </div>
+                        <span v-else class="settings-empty-value">-</span>
+                        <details v-if="fieldChangeCount(entry.field_changes)" class="settings-field-detail">
+                          <summary>字段明细 {{ fieldChangeCount(entry.field_changes) }} 项</summary>
+                          <pre class="settings-diff-pre settings-diff-pre-compact">{{
+                            formatFieldChanges(entry.field_changes)
+                          }}</pre>
+                        </details>
                       </td>
-                      <td class="px-3 py-2 min-w-48 text-black/70">{{ entry.message || "-" }}</td>
+                      <td class="px-3 py-2">
+                        <div v-if="hasLocalFieldSummary(entry)" class="settings-field-stack">
+                          <div v-if="hasFieldList(entry.changed_fields)">
+                            <span>变更</span>
+                            <p>{{ formatFieldList(entry.changed_fields) }}</p>
+                          </div>
+                          <div v-if="hasFieldList(entry.overwritten_fields)">
+                            <span>覆盖</span>
+                            <p>{{ formatFieldList(entry.overwritten_fields) }}</p>
+                          </div>
+                          <div v-if="hasFieldList(entry.kept_local_fields)">
+                            <span>保留</span>
+                            <p>{{ formatFieldList(entry.kept_local_fields) }}</p>
+                          </div>
+                        </div>
+                        <span v-else class="settings-empty-value">-</span>
+                      </td>
+                      <td class="px-3 py-2 text-black/70">
+                        <p class="settings-detail-message">{{ entry.message || "-" }}</p>
+                      </td>
                     </tr>
                     <tr v-if="activeLogDetail.synced_list.length === 0">
-                      <td colspan="7" class="px-3 py-4 text-center text-black/55">无成功同步明细</td>
+                      <td colspan="4" class="px-3 py-4 text-center text-black/55">无成功同步明细</td>
                     </tr>
                   </tbody>
                 </table>
@@ -913,12 +958,14 @@ onMounted(reloadAll);
                 <span class="badge">{{ activeLogDetail.failed }} 条</span>
               </div>
               <div class="table-shell settings-table-shell">
-                <table class="min-w-full text-sm settings-detail-table">
+                <table class="min-w-full text-sm settings-detail-table settings-detail-table-fixed settings-detail-failed-table">
+                  <colgroup>
+                    <col class="settings-detail-col-media" />
+                    <col class="settings-detail-col-failure" />
+                  </colgroup>
                   <thead class="table-head text-left text-black/70">
                     <tr>
-                      <th class="px-3 py-2 font-medium">类型</th>
-                      <th class="px-3 py-2 font-medium">名称</th>
-                      <th class="px-3 py-2 font-medium">TMDB ID</th>
+                      <th class="px-3 py-2 font-medium">媒体</th>
                       <th class="px-3 py-2 font-medium">失败原因</th>
                     </tr>
                   </thead>
@@ -928,15 +975,23 @@ onMounted(reloadAll);
                       :key="`failed-${idx}-${entry.media_type}-${entry.tmdb_id}`"
                       class="table-row-hover"
                     >
-                      <td class="px-3 py-2 whitespace-nowrap">{{ formatMediaType(entry.media_type) }}</td>
-                      <td class="px-3 py-2 min-w-44">
-                        <p class="settings-table-primary line-clamp-2">{{ entry.name || "-" }}</p>
+                      <td class="px-3 py-2">
+                        <div class="settings-media-cell">
+                          <span class="settings-media-type settings-media-type-danger">
+                            {{ formatMediaType(entry.media_type) }}
+                          </span>
+                          <div>
+                            <p class="settings-table-primary line-clamp-2">{{ entry.name || "-" }}</p>
+                            <p class="settings-table-meta">TMDB ID {{ entry.tmdb_id || "-" }}</p>
+                          </div>
+                        </div>
                       </td>
-                      <td class="px-3 py-2 whitespace-nowrap">{{ entry.tmdb_id || "-" }}</td>
-                      <td class="px-3 py-2 min-w-96 text-black/70">{{ entry.message || "-" }}</td>
+                      <td class="px-3 py-2 text-black/70">
+                        <p class="settings-detail-message">{{ entry.message || "-" }}</p>
+                      </td>
                     </tr>
                     <tr v-if="activeLogDetail.failed_list.length === 0">
-                      <td colspan="4" class="px-3 py-4 text-center text-black/55">无失败明细</td>
+                      <td colspan="2" class="px-3 py-4 text-center text-black/55">无失败明细</td>
                     </tr>
                   </tbody>
                 </table>

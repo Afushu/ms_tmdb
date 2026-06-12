@@ -39,11 +39,6 @@ func (l *ListProxyAccessLogsLogic) ListProxyAccessLogs(req *types.AdminProxyAcce
 		"error_message",
 	)
 
-	var total int64
-	if err := query.Count(&total).Error; err != nil {
-		return nil, err
-	}
-
 	var records []model.ProxyAccessLog
 	if err := query.
 		Select(
@@ -64,15 +59,17 @@ func (l *ListProxyAccessLogsLogic) ListProxyAccessLogs(req *types.AdminProxyAcce
 			"response_body_truncated",
 			"created_at",
 		).
-		Order("id DESC").
+		Order(requestLogListOrder).
 		Offset((page - 1) * pageSize).
-		Limit(pageSize).
+		Limit(requestLogPageLimit(pageSize)).
 		Find(&records).Error; err != nil {
 		return nil, err
 	}
 
-	results := make([]types.AdminProxyAccessLogItem, 0, len(records))
-	for _, record := range records {
+	total := requestLogWindowTotal(page, pageSize, len(records))
+	visibleCount := requestLogVisibleCount(pageSize, len(records))
+	results := make([]types.AdminProxyAccessLogItem, 0, visibleCount)
+	for _, record := range records[:visibleCount] {
 		results = append(results, proxyAccessLogItem(record))
 	}
 

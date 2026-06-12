@@ -64,6 +64,12 @@ const currentTotal = computed(() => (activeTab.value === "access" ? accessTotal.
 const currentPage = computed(() => (activeTab.value === "access" ? accessPage.value : tmdbPage.value));
 const currentPageSize = computed(() => (activeTab.value === "access" ? accessPageSize.value : tmdbPageSize.value));
 const currentTotalPages = computed(() => totalPages(currentTotal.value, currentPageSize.value));
+const accessTotalText = computed(() => formatRequestLogTotal(accessTotal.value, accessPage.value, accessPageSize.value));
+const tmdbTotalText = computed(() => formatRequestLogTotal(tmdbTotal.value, tmdbPage.value, tmdbPageSize.value));
+const currentTotalText = computed(() => (activeTab.value === "access" ? accessTotalText.value : tmdbTotalText.value));
+const currentTotalLabel = computed(() =>
+  currentTotalText.value.startsWith("至少") ? currentTotalText.value : `共 ${currentTotalText.value}`,
+);
 const activeDetail = computed(() => (detailType.value === "access" ? accessDetail.value : tmdbDetail.value));
 const currentKeyword = computed(() =>
   activeTab.value === "access" ? accessKeyword.value.trim() : tmdbKeyword.value.trim(),
@@ -77,6 +83,13 @@ function totalPages(total: number, pageSize: number) {
   const safeTotal = Math.max(0, Number(total) || 0);
   const safePageSize = normalizeNumber(Number(pageSize) || 20, 1, 100);
   return Math.max(1, Math.ceil(safeTotal / safePageSize));
+}
+
+function formatRequestLogTotal(total: number, page: number, pageSize: number) {
+  const safeTotal = Math.max(0, Number(total) || 0);
+  const safePage = Math.max(1, Number(page) || 1);
+  const safePageSize = normalizeNumber(Number(pageSize) || 20, 1, 100);
+  return safeTotal > safePage * safePageSize ? `至少 ${safeTotal}` : `${safeTotal}`;
 }
 
 function normalizeNumber(value: number, min: number, max: number) {
@@ -487,11 +500,11 @@ onMounted(() => {
     <section class="logs-overview-strip">
       <div>
         <span>外部访问</span>
-        <strong>{{ accessTotal }}</strong>
+        <strong>{{ accessTotalText }}</strong>
       </div>
       <div>
         <span>TMDB 请求</span>
-        <strong>{{ tmdbTotal }}</strong>
+        <strong>{{ tmdbTotalText }}</strong>
       </div>
       <div>
         <span>当前分页</span>
@@ -680,7 +693,7 @@ onMounted(() => {
       </template>
 
       <div class="settings-pagination-row">
-        <p>共 {{ currentTotal }} 条，当前第 {{ currentPage }} / {{ currentTotalPages }} 页</p>
+        <p>{{ currentTotalLabel }} 条，当前第 {{ currentPage }} / {{ currentTotalPages }} 页</p>
         <div class="flex items-center gap-2">
           <button
             class="btn-soft px-3 py-1.5 disabled:opacity-60"
