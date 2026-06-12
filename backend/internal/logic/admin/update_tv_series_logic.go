@@ -163,7 +163,20 @@ func (l *UpdateTvSeriesLogic) UpdateTvSeries(req *types.AdminUpdateReq) error {
 		hasFieldUpdate = true
 	}
 	if req.GenreNames != nil {
-		genres := buildGenresFromNames(req.GenreNames)
+		originalGenres := make([]map[string]interface{}, 0)
+		if len(tv.TmdbData) > 0 {
+			tmdbMap, err := rawJSONToMap(tv.TmdbData)
+			if err == nil {
+				if gs, ok := tmdbMap["genres"].([]interface{}); ok {
+					for _, g := range gs {
+						if gm, ok2 := g.(map[string]interface{}); ok2 {
+							originalGenres = append(originalGenres, gm)
+						}
+					}
+				}
+			}
+		}
+		genres := buildGenresFromNames(req.GenreNames, originalGenres)
 		patch["genres"] = genres
 		hasFieldUpdate = true
 	}

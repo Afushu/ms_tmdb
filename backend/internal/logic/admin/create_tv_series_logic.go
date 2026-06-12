@@ -42,7 +42,7 @@ func (l *CreateTvSeriesLogic) CreateTvSeries(req *types.AdminCreateTvReq) (*type
 	posterPath := strings.TrimSpace(req.PosterPath)
 	backdropPath := strings.TrimSpace(req.BackdropPath)
 	seriesType := strings.TrimSpace(req.Type)
-	genres := buildGenresFromNames(req.GenreNames)
+	genres := buildGenresFromNames(req.GenreNames, nil)
 
 	numberOfSeasons := 0
 	if req.NumberOfSeasons != nil {

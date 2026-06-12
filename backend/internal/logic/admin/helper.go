@@ -140,11 +140,23 @@ func trimPtrString(v *string) string {
 	return strings.TrimSpace(*v)
 }
 
-// buildGenresFromNames 把类型名转换为详情页可渲染结构
-func buildGenresFromNames(names []string) []map[string]interface{} {
+// buildGenresFromNames 把类型名转换为详情页可渲染结构，优先保留原始 TMDB id
+func buildGenresFromNames(names []string, originalGenres []map[string]interface{}) []map[string]interface{} {
 	result := make([]map[string]interface{}, 0, len(names))
 	seen := make(map[string]struct{}, len(names))
-	id := 1
+
+	nameToID := make(map[string]int)
+	for _, g := range originalGenres {
+		if name, ok := g["name"].(string); ok {
+			if id, ok2 := g["id"].(float64); ok2 {
+				nameToID[strings.ToLower(name)] = int(id)
+			} else if id, ok2 := g["id"].(int); ok2 {
+				nameToID[strings.ToLower(name)] = id
+			}
+		}
+	}
+
+	negativeID := -1
 	for _, raw := range names {
 		name := strings.TrimSpace(raw)
 		if name == "" {
@@ -155,11 +167,18 @@ func buildGenresFromNames(names []string) []map[string]interface{} {
 			continue
 		}
 		seen[key] = struct{}{}
+
+		id := negativeID
+		if originalID, ok := nameToID[key]; ok {
+			id = originalID
+		} else {
+			negativeID--
+		}
+
 		result = append(result, map[string]interface{}{
 			"id":   id,
 			"name": name,
 		})
-		id++
 	}
 	return result
 }
