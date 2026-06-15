@@ -26,6 +26,8 @@ env:
 jobs:
   frontend:
     runs-on: ubuntu-latest
+    outputs:
+      app_version: ${{ steps.app-version.outputs.APP_VERSION }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -58,12 +60,12 @@ jobs:
           SKIP_SIMPLE_GIT_HOOKS: 1
         run: pnpm -C frontend install --frozen-lockfile
 
-      - name: Prepare Docker build version
+      - name: 生成版本号
         id: app-version
         run: |
           APP_VERSION="$(TZ=Asia/Shanghai date +%Y%m%d%H%M)"
           echo "APP_VERSION=${APP_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Docker build version: ${APP_VERSION}"
+          echo "构建版本号: ${APP_VERSION}"
 
       - name: Build frontend
         env:
@@ -93,15 +95,17 @@ jobs:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
 
-      - name: Build backend (${{ matrix.arch }})
+      - name: 编译后端 (${{ matrix.arch }})
         env:
           GOOS: linux
           GOARCH: ${{ matrix.arch }}
           CGO_ENABLED: 0
+          APP_VERSION: ${{ needs.frontend.outputs.app_version }}
         working-directory: backend
         run: |
           mkdir -p ../build-artifacts/backend/${{ matrix.arch }}
-          go build -trimpath -ldflags="-s -w" -o ../build-artifacts/backend/${{ matrix.arch }}/tmdb ./tmdb.go
+          go build -trimpath -ldflags="-s -w -X main.Version=${APP_VERSION}" \
+            -o ../build-artifacts/backend/${{ matrix.arch }}/tmdb ./tmdb.go
 
       - name: Upload backend (${{ matrix.arch }})
         uses: actions/upload-artifact@v7
@@ -155,15 +159,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest
-
-      - name: Build and push Docker images
+      - name: 构建并推送镜像（:latest）
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -172,5 +168,10 @@ jobs:
           push: true
           provenance: false
           sbom: false
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ needs.frontend.outputs.app_version }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+          labels: |
+            org.opencontainers.image.title=ms_tmdb
+            org.opencontainers.image.description=TMDB proxy and local enhancement platform runtime image
+            org.opencontainers.image.version=${{ needs.frontend.outputs.app_version }}

@@ -20,14 +20,25 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-var configFile = flag.String("f", "etc/tmdb.yaml", "the config file")
+var (
+	Version    = "dev"
+	configFile = flag.String("f", "etc/tmdb.yaml", "the config file")
+	showVer    = flag.Bool("version", false, "显示版本号并退出")
+)
 
 func main() {
 	flag.Parse()
 
+	if *showVer {
+		fmt.Println("ms_tmdb version:", Version)
+		return
+	}
+
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
 	c.ConfigFile = *configFile
+
+	adminlogic.AppVersion = Version
 
 	server := rest.MustNewServer(c.RestConf)
 	logging.SetupConsoleWriter(c.Log.Mode)

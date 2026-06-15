@@ -7,6 +7,7 @@ import {
   getAutoSyncLogs,
   getAutoSyncSettings,
   getProxySettings,
+  getVersion,
   runAutoSyncNow,
   updateAutoSyncSettings,
   updateProxySettings,
@@ -19,6 +20,8 @@ import { resolveErrorMessage } from "@/utils/errors";
 
 const loading = ref(false);
 const appVersion = __APP_VERSION__;
+const backendVersion = ref("");
+const backendGo = ref("");
 
 const proxySaving = ref(false);
 const proxyError = ref("");
@@ -385,7 +388,11 @@ async function loadSettings() {
   syncMessage.value = "";
 
   try {
-    const [proxyResp, autoSyncResp] = await Promise.all([getProxySettings(), getAutoSyncSettings()]);
+    const [proxyResp, autoSyncResp, versionResp] = await Promise.all([
+      getProxySettings(),
+      getAutoSyncSettings(),
+      getVersion().catch(() => null),
+    ]);
     const proxyData = proxyResp.data;
     proxyEnabled.value = !!proxyData.enabled;
     proxyURL.value = proxyData.proxy_url ?? "";
@@ -400,6 +407,11 @@ async function loadSettings() {
     syncBatchSize.value = normalizeNumber(Number(syncData.batch_size), 1, 500);
     syncStartDelaySecond.value = normalizeNumber(Number(syncData.start_delay_second), 0, 3600);
     syncRunning.value = !!syncData.running;
+
+    if (versionResp?.data) {
+      backendVersion.value = versionResp.data.version || "";
+      backendGo.value = versionResp.data.go || "";
+    }
   } catch (err: unknown) {
     const text = resolveErrorMessage(err, "读取系统设置失败");
     proxyError.value = text;
@@ -533,9 +545,14 @@ onMounted(reloadAll);
         <p>{{ latestLogTimeText }}</p>
       </article>
       <article class="settings-summary-card">
-        <span class="settings-summary-label">当前版本</span>
+        <span class="settings-summary-label">前端版本</span>
         <strong>v{{ appVersion || "-" }}</strong>
-        <p>前端构建版本</p>
+        <p>构建时注入</p>
+      </article>
+      <article class="settings-summary-card">
+        <span class="settings-summary-label">后端版本</span>
+        <strong>v{{ backendVersion || "-" }}</strong>
+        <p>{{ backendGo || "" }}</p>
       </article>
     </section>
 

@@ -475,3 +475,10 @@ type TvSeriesListResp struct {
 type UploadFileReq struct {
 	Filename string `path:"filename"`
 }
+
+type VersionResp struct {
+	Version string `json:"version"`
+	Go      string `json:"go"`
+	Os      string `json:"os"`
+	Arch    string `json:"arch"`
+}
