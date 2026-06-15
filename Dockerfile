@@ -5,7 +5,7 @@
 
 ARG VERSION=dev
 ARG NODE_VERSION=22
-ARG GO_VERSION=1.26
+ARG GO_VERSION=1.24
 ARG NGINX_VERSION=1.27-alpine
 
 # --- Stage 1: 构建前端 ---
@@ -33,7 +33,7 @@ ARG TARGETARCH
 WORKDIR /app
 
 COPY backend/ ./
-RUN GOARCH=${TARGETARCH} CGO_ENABLED=0 GOOS=linux \
+RUN GOTOOLCHAIN=auto GOARCH=${TARGETARCH} CGO_ENABLED=0 GOOS=linux \
     go build -trimpath -ldflags="-s -w -X main.Version=${VERSION}" \
     -o /out/tmdb ./tmdb.go
 
