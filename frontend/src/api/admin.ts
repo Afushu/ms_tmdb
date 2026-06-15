@@ -475,3 +475,14 @@ export function uploadAdminImage(file: File) {
     },
   });
 }
+
+export type AdminVersionResp = {
+  version: string;
+  go?: string;
+  os?: string;
+  arch?: string;
+};
+
+export function getVersion() {
+  return http.get<AdminVersionResp>("/api/admin/version");
+}

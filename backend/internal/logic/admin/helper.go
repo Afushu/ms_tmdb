@@ -140,11 +140,24 @@ func trimPtrString(v *string) string {
 	return strings.TrimSpace(*v)
 }
 
-// buildGenresFromNames 把类型名转换为详情页可渲染结构
-func buildGenresFromNames(names []string) []map[string]interface{} {
+// buildGenresFromNames 把类型名转换为详情页可渲染结构，保留原始 TMDB ID
+func buildGenresFromNames(names []string, originalGenres []map[string]interface{}) []map[string]interface{} {
 	result := make([]map[string]interface{}, 0, len(names))
 	seen := make(map[string]struct{}, len(names))
-	id := 1
+
+	// 从原始 genres 构建 name -> ID 映射
+	nameToID := make(map[string]int, len(originalGenres))
+	for _, g := range originalGenres {
+		if name, ok := g["name"].(string); ok {
+			if id, ok2 := g["id"].(float64); ok2 {
+				nameToID[strings.ToLower(name)] = int(id)
+			} else if id, ok2 := g["id"].(int); ok2 {
+				nameToID[strings.ToLower(name)] = id
+			}
+		}
+	}
+
+	negativeID := -1
 	for _, raw := range names {
 		name := strings.TrimSpace(raw)
 		if name == "" {
@@ -155,11 +168,40 @@ func buildGenresFromNames(names []string) []map[string]interface{} {
 			continue
 		}
 		seen[key] = struct{}{}
+
+		id := negativeID
+		if originalID, exists := nameToID[key]; exists {
+			id = originalID
+		} else {
+			negativeID--
+		}
+
 		result = append(result, map[string]interface{}{
 			"id":   id,
 			"name": name,
 		})
-		id++
+	}
+	return result
+}
+
+// extractGenresFromTmdbData 从 TMDB 原始数据中提取 genres 数组
+func extractGenresFromTmdbData(raw model.RawJSON) []map[string]interface{} {
+	if len(raw) == 0 {
+		return nil
+	}
+	var payload map[string]interface{}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return nil
+	}
+	genres, ok := payload["genres"].([]interface{})
+	if !ok {
+		return nil
+	}
+	result := make([]map[string]interface{}, 0, len(genres))
+	for _, g := range genres {
+		if m, ok := g.(map[string]interface{}); ok {
+			result = append(result, m)
+		}
 	}
 	return result
 }

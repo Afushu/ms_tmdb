@@ -41,7 +41,7 @@ func (l *CreateMovieLogic) CreateMovie(req *types.AdminCreateMovieReq) (*types.A
 	homepage := strings.TrimSpace(req.Homepage)
 	posterPath := strings.TrimSpace(req.PosterPath)
 	backdropPath := strings.TrimSpace(req.BackdropPath)
-	genres := buildGenresFromNames(req.GenreNames)
+	genres := buildGenresFromNames(req.GenreNames, nil)
 
 	runtime := 0
 	if req.Runtime != nil {

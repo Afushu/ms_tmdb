@@ -106,10 +106,12 @@ jobs:
           GOOS: linux
           GOARCH: ${{ matrix.arch }}
           CGO_ENABLED: 0
+          APP_VERSION: ${{ needs.frontend.outputs.app_version }}
         working-directory: backend
         run: |
           mkdir -p ../build-artifacts/backend/${{ matrix.arch }}
-          go build -trimpath -ldflags="-s -w" -o ../build-artifacts/backend/${{ matrix.arch }}/tmdb ./tmdb.go
+          go build -trimpath -ldflags="-s -w -X main.Version=${APP_VERSION}" \
+            -o ../build-artifacts/backend/${{ matrix.arch }}/tmdb ./tmdb.go
 
       - name: Upload backend (${{ matrix.arch }})
         uses: actions/upload-artifact@v7
@@ -181,4 +183,8 @@ jobs:
           provenance: false
           sbom: false
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+            org.opencontainers.image.version=${{ needs.frontend.outputs.app_version }}
+          build-args: |
+            VERSION=${{ needs.frontend.outputs.app_version }}
