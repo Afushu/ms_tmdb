@@ -83,6 +83,7 @@ jobs:
           retention-days: 3
 
   backend:
+    needs: [frontend]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
