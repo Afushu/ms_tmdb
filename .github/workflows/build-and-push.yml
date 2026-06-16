@@ -26,6 +26,8 @@ env:
 jobs:
   frontend:
     runs-on: ubuntu-latest
+    outputs:
+      app_version: ${{ steps.app-version.outputs.APP_VERSION }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
