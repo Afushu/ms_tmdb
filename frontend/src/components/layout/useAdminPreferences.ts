@@ -36,46 +36,63 @@ export function useAdminPreferences() {
   const currentSidebarOption = computed(
     () => sidebarOptions.find((item) => item.value === preferences.sidebarColor) ?? sidebarOptions[0],
   );
-  const adminThemeStyle = computed<Record<string, string>>(() => ({
-    "--bg-main": currentThemeOption.value.bgMain,
-    "--border-muted": currentThemeOption.value.borderMuted,
-    "--accent": currentThemeOption.value.accent,
-    "--accent-active-bg": `${currentThemeOption.value.accent}24`,
-    "--accent-active-border": `${currentThemeOption.value.accent}52`,
-    "--accent-hover-border": `${currentThemeOption.value.accent}57`,
-    "--accent-ring": `${currentThemeOption.value.accent}1f`,
-    "--accent-soft": currentThemeOption.value.accentSoft,
-    "--accent-strong": currentThemeOption.value.accentStrong,
-    "--field-border-focus": currentThemeOption.value.fieldBorderFocus,
-    "--field-bg": currentThemeOption.value.fieldBg,
-    "--field-border": currentThemeOption.value.fieldBorder,
-    "--glass-bg": currentThemeOption.value.glassBg,
-    "--glass-bg-strong": currentThemeOption.value.glassBgStrong,
-    "--glass-border": currentThemeOption.value.glassBorder,
-    "--glass-shadow": currentThemeOption.value.glassShadow,
-    "--glass-shadow-soft": currentThemeOption.value.glassShadowSoft,
-    "--sidebar-active-bg": currentSidebarOption.value.activeBg,
-    "--sidebar-active-icon-bg": currentSidebarOption.value.activeIconBg,
-    "--sidebar-active-icon-text": currentSidebarOption.value.activeIconText,
-    "--sidebar-active-text": currentSidebarOption.value.activeText,
-    "--sidebar-bg": currentSidebarOption.value.bg,
-    "--sidebar-border": currentSidebarOption.value.border,
-    "--sidebar-hover-bg": currentSidebarOption.value.hoverBg,
-    "--sidebar-hover-icon-bg": currentSidebarOption.value.hoverIconBg,
-    "--sidebar-hover-icon-text": currentSidebarOption.value.hoverIconText,
-    "--sidebar-hover-text": currentSidebarOption.value.hoverText,
-    "--sidebar-icon-bg": currentSidebarOption.value.iconBg,
-    "--sidebar-muted": currentSidebarOption.value.muted,
-    "--sidebar-text": currentSidebarOption.value.text,
-    "--surface": currentThemeOption.value.surface,
-    "--surface-muted": currentThemeOption.value.surfaceMuted,
-    "--surface-strong": currentThemeOption.value.surfaceStrong,
-    "--text-main": currentThemeOption.value.textMain,
-    "--text-muted": currentThemeOption.value.textMuted,
-    "--topbar-bg": currentThemeOption.value.topbarBg,
-    "--primary": "212 100% 54%",
-    "color-scheme": currentThemeOption.value.colorScheme,
-  }));
+  const adminThemeStyle = computed<Record<string, string>>(() => {
+    const isDarkTheme = currentThemeOption.value.colorScheme === "dark";
+
+    return {
+      "--bg-main": currentThemeOption.value.bgMain,
+      "--border-muted": currentThemeOption.value.borderMuted,
+      "--accent": currentThemeOption.value.accent,
+      "--accent-active-bg": `${currentThemeOption.value.accent}24`,
+      "--accent-active-border": `${currentThemeOption.value.accent}52`,
+      "--accent-hover-border": `${currentThemeOption.value.accent}57`,
+      "--accent-ring": `${currentThemeOption.value.accent}1f`,
+      "--accent-soft": currentThemeOption.value.accentSoft,
+      "--accent-strong": currentThemeOption.value.accentStrong,
+      "--field-border-focus": currentThemeOption.value.fieldBorderFocus,
+      "--field-bg": currentThemeOption.value.fieldBg,
+      "--field-border": currentThemeOption.value.fieldBorder,
+      "--glass-bg": currentThemeOption.value.glassBg,
+      "--glass-bg-strong": currentThemeOption.value.glassBgStrong,
+      "--glass-border": currentThemeOption.value.glassBorder,
+      "--glass-shadow": currentThemeOption.value.glassShadow,
+      "--glass-shadow-soft": currentThemeOption.value.glassShadowSoft,
+      "--scrollbar-thumb": isDarkTheme ? "rgba(148, 163, 184, 0.36)" : "rgba(100, 116, 139, 0.38)",
+      "--scrollbar-thumb-hover": isDarkTheme ? "rgba(148, 163, 184, 0.56)" : "rgba(71, 85, 105, 0.58)",
+      "--scrollbar-track": "transparent",
+      "--sidebar-active-bg": currentSidebarOption.value.activeBg,
+      "--sidebar-active-icon-bg": currentSidebarOption.value.activeIconBg,
+      "--sidebar-active-icon-text": currentSidebarOption.value.activeIconText,
+      "--sidebar-active-text": currentSidebarOption.value.activeText,
+      "--sidebar-bg": currentSidebarOption.value.bg,
+      "--sidebar-border": currentSidebarOption.value.border,
+      "--sidebar-hover-bg": currentSidebarOption.value.hoverBg,
+      "--sidebar-hover-icon-bg": currentSidebarOption.value.hoverIconBg,
+      "--sidebar-hover-icon-text": currentSidebarOption.value.hoverIconText,
+      "--sidebar-hover-text": currentSidebarOption.value.hoverText,
+      "--sidebar-icon-bg": currentSidebarOption.value.iconBg,
+      "--sidebar-muted": currentSidebarOption.value.muted,
+      "--sidebar-text": currentSidebarOption.value.text,
+      "--surface": currentThemeOption.value.surface,
+      "--surface-muted": currentThemeOption.value.surfaceMuted,
+      "--surface-strong": currentThemeOption.value.surfaceStrong,
+      "--text-main": currentThemeOption.value.textMain,
+      "--text-muted": currentThemeOption.value.textMuted,
+      "--topbar-bg": currentThemeOption.value.topbarBg,
+      "--primary": "212 100% 54%",
+      "color-scheme": currentThemeOption.value.colorScheme,
+    };
+  });
+
+  function applyRootTheme(style: Record<string, string>) {
+    if (typeof document === "undefined") return;
+
+    const root = document.documentElement;
+    root.setAttribute("data-theme", currentThemeOption.value.dataTheme);
+    for (const [property, value] of Object.entries(style)) {
+      root.style.setProperty(property, value);
+    }
+  }
 
   function loadPreferences() {
     try {
@@ -99,6 +116,7 @@ export function useAdminPreferences() {
     Object.assign(preferences, { [key]: value });
   }
 
+  watch(adminThemeStyle, applyRootTheme, { immediate: true });
   watch(preferences, savePreferences);
   onMounted(loadPreferences);
 

@@ -23,7 +23,7 @@ function toggleGenre(name: string, checked: boolean) {
 </script>
 
 <template>
-  <div class="mt-1 max-h-32 overflow-y-auto rounded-lg border border-white/70 bg-white/55 p-2 backdrop-blur">
+  <div class="genre-checkbox-list mt-1 max-h-32 overflow-y-auto rounded-lg border border-white/70 bg-white/55 p-2 backdrop-blur">
     <label v-for="genre in options" :key="genre.id" class="mr-3 inline-flex items-center gap-1.5 py-1 text-xs">
       <input
         type="checkbox"

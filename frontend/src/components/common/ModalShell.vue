@@ -8,7 +8,7 @@ withDefaults(
   }>(),
   {
     maxWidthClass: "max-w-5xl",
-    contentClass: "max-h-[calc(88vh-120px)] overflow-y-auto px-4 py-4 sm:px-6",
+    contentClass: "modal-scroll-content max-h-[calc(88vh-120px)] overflow-y-auto px-4 py-4 sm:px-6",
   },
 );
 

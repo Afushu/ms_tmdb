@@ -653,9 +653,9 @@
 
 .settings-media-type {
   @apply inline-flex whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium;
-  color: #86efac;
-  background: rgba(20, 83, 45, 0.22);
-  border: 1px solid rgba(74, 222, 128, 0.22);
+  color: var(--accent);
+  background: var(--accent-active-bg);
+  border: 1px solid var(--accent-active-border);
 }
 
 .settings-media-type-danger {

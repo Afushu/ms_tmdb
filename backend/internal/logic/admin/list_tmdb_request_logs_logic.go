@@ -36,6 +36,11 @@ func (l *ListTmdbRequestLogsLogic) ListTmdbRequestLogs(req *types.AdminTmdbReque
 		"error_message",
 	)
 
+	total, err := countRequestLogs(query)
+	if err != nil {
+		return nil, err
+	}
+
 	var records []model.TmdbRequestLog
 	if err := query.
 		Select(
@@ -55,15 +60,13 @@ func (l *ListTmdbRequestLogsLogic) ListTmdbRequestLogs(req *types.AdminTmdbReque
 		).
 		Order(requestLogListOrder).
 		Offset((page - 1) * pageSize).
-		Limit(requestLogPageLimit(pageSize)).
+		Limit(pageSize).
 		Find(&records).Error; err != nil {
 		return nil, err
 	}
 
-	total := requestLogWindowTotal(page, pageSize, len(records))
-	visibleCount := requestLogVisibleCount(pageSize, len(records))
-	results := make([]types.AdminTmdbRequestLogItem, 0, visibleCount)
-	for _, record := range records[:visibleCount] {
+	results := make([]types.AdminTmdbRequestLogItem, 0, len(records))
+	for _, record := range records {
 		results = append(results, tmdbRequestLogItem(record))
 	}
 

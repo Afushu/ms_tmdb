@@ -64,12 +64,10 @@ const currentTotal = computed(() => (activeTab.value === "access" ? accessTotal.
 const currentPage = computed(() => (activeTab.value === "access" ? accessPage.value : tmdbPage.value));
 const currentPageSize = computed(() => (activeTab.value === "access" ? accessPageSize.value : tmdbPageSize.value));
 const currentTotalPages = computed(() => totalPages(currentTotal.value, currentPageSize.value));
-const accessTotalText = computed(() => formatRequestLogTotal(accessTotal.value, accessPage.value, accessPageSize.value));
-const tmdbTotalText = computed(() => formatRequestLogTotal(tmdbTotal.value, tmdbPage.value, tmdbPageSize.value));
+const accessTotalText = computed(() => formatRequestLogTotal(accessTotal.value));
+const tmdbTotalText = computed(() => formatRequestLogTotal(tmdbTotal.value));
 const currentTotalText = computed(() => (activeTab.value === "access" ? accessTotalText.value : tmdbTotalText.value));
-const currentTotalLabel = computed(() =>
-  currentTotalText.value.startsWith("至少") ? currentTotalText.value : `共 ${currentTotalText.value}`,
-);
+const currentTotalLabel = computed(() => `共 ${currentTotalText.value}`);
 const activeDetail = computed(() => (detailType.value === "access" ? accessDetail.value : tmdbDetail.value));
 const currentKeyword = computed(() =>
   activeTab.value === "access" ? accessKeyword.value.trim() : tmdbKeyword.value.trim(),
@@ -85,11 +83,8 @@ function totalPages(total: number, pageSize: number) {
   return Math.max(1, Math.ceil(safeTotal / safePageSize));
 }
 
-function formatRequestLogTotal(total: number, page: number, pageSize: number) {
-  const safeTotal = Math.max(0, Number(total) || 0);
-  const safePage = Math.max(1, Number(page) || 1);
-  const safePageSize = normalizeNumber(Number(pageSize) || 20, 1, 100);
-  return safeTotal > safePage * safePageSize ? `至少 ${safeTotal}` : `${safeTotal}`;
+function formatRequestLogTotal(total: number) {
+  return `${Math.max(0, Number(total) || 0)}`;
 }
 
 function normalizeNumber(value: number, min: number, max: number) {

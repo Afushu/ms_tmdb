@@ -818,7 +818,7 @@ onMounted(reloadAll);
           <button class="btn-soft px-3 py-1.5" @click="closeLogDetail">关闭</button>
         </div>
 
-        <div class="max-h-[calc(92vh-72px)] overflow-y-auto px-4 py-4 sm:px-5">
+        <div class="settings-detail-scroll max-h-[calc(92vh-72px)] overflow-y-auto px-4 py-4 sm:px-5">
           <p v-if="detailLoading && !activeLogDetail" class="text-sm text-black/60">明细加载中...</p>
 
           <template v-if="activeLogDetail">

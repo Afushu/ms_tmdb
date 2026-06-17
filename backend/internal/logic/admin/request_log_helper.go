@@ -51,27 +51,12 @@ func escapeLikeKeyword(keyword string) string {
 	return replacer.Replace(keyword)
 }
 
-func requestLogPageLimit(pageSize int) int {
-	return pageSize + 1
-}
-
-func requestLogVisibleCount(pageSize int, loaded int) int {
-	if loaded > pageSize {
-		return pageSize
-	}
-	return loaded
-}
-
-// requestLogWindowTotal 返回当前分页窗口能证明的总量下界。
-// 请求日志表增长快，精确 COUNT 会随表大小线性变慢；多取一条即可判断是否允许翻到下一页。
-func requestLogWindowTotal(page int, pageSize int, loaded int) int64 {
-	offset := (page - 1) * pageSize
-	visible := requestLogVisibleCount(pageSize, loaded)
-	total := int64(offset + visible)
-	if loaded > pageSize {
-		return total + 1
-	}
-	return total
+// countRequestLogs 返回当前筛选条件下的真实日志总数。
+// 概览卡片直接展示该值，避免超过一页时固定显示“至少 21”。
+func countRequestLogs(query *gorm.DB) (int64, error) {
+	var total int64
+	err := query.Session(&gorm.Session{}).Count(&total).Error
+	return total, err
 }
 
 func proxyAccessLogItem(record model.ProxyAccessLog) types.AdminProxyAccessLogItem {

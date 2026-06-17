@@ -268,8 +268,6 @@
 
 .person-photo-strip {
   @apply flex gap-2 overflow-x-auto pb-2;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(56, 189, 248, 0.42) transparent;
 }
 
 .person-photo-img {
