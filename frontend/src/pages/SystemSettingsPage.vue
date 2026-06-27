@@ -3,16 +3,12 @@ import { computed, onMounted, ref } from "vue";
 import GlassSelect from "@/components/GlassSelect.vue";
 import ToastNotice from "@/components/common/ToastNotice.vue";
 import {
-  clearAutoSyncLogs,
-  getAutoSyncLogDetail,
   getAutoSyncLogs,
   getAutoSyncSettings,
   getProxySettings,
   runAutoSyncNow,
   updateAutoSyncSettings,
   updateProxySettings,
-  type AdminAutoSyncLogDetailParams,
-  type AdminAutoSyncLogDetailResp,
   type AdminAutoSyncLogItem,
   type AdminAutoSyncMode,
 } from "@/api/admin";
@@ -38,21 +34,7 @@ const syncRunning = ref(false);
 const syncTriggering = ref(false);
 
 const logsLoading = ref(false);
-const logsClearing = ref(false);
-const clearLogsConfirmVisible = ref(false);
-const logsStatus = ref("");
-const logsPage = ref(1);
-const logsPageSize = ref(10);
-const logsTotal = ref(0);
 const logsItems = ref<AdminAutoSyncLogItem[]>([]);
-const detailModalVisible = ref(false);
-const detailLoading = ref(false);
-const activeLogDetail = ref<AdminAutoSyncLogDetailResp | null>(null);
-const activeLogId = ref<number | null>(null);
-const detailSyncedPage = ref(1);
-const detailSyncedPageSize = ref(10);
-const detailFailedPage = ref(1);
-const detailFailedPageSize = ref(10);
 const { toastVisible, toastText, toastTone, showToastNotice, closeToastNotice } = useToastNotice();
 
 const modeOptions: Array<{ label: string; value: AdminAutoSyncMode; hint: string }> = [
@@ -60,22 +42,7 @@ const modeOptions: Array<{ label: string; value: AdminAutoSyncMode; hint: string
   { label: "全量覆盖", value: "overwrite_all", hint: "使用 TMDB 最新数据覆盖本地字段" },
 ];
 
-const logStatusOptions: Array<{ label: string; value: string }> = [
-  { label: "全部状态", value: "" },
-  { label: "成功", value: "success" },
-  { label: "部分失败", value: "partial_failed" },
-  { label: "异常", value: "panic" },
-];
-
-const settingsBusy = computed(
-  () =>
-    loading.value ||
-    proxySaving.value ||
-    syncSaving.value ||
-    syncTriggering.value ||
-    logsLoading.value ||
-    logsClearing.value,
-);
+const settingsBusy = computed(() => loading.value || proxySaving.value || syncSaving.value || syncTriggering.value || logsLoading.value);
 const proxyStatusText = computed(() => (proxyEnabled.value ? "已启用" : "直连"));
 const proxyLocalWriteStatusText = computed(() => (proxyLocalWriteEnabled.value ? "自动写入本地" : "仅读已有本地"));
 const proxyTimeoutStatusText = computed(() =>
@@ -116,21 +83,10 @@ function formatStatus(status: string) {
       return "部分失败";
     case "panic":
       return "异常";
+    case "canceled":
+      return "已取消";
     default:
       return status || "-";
-  }
-}
-
-function statusClass(status: string) {
-  switch (status) {
-    case "success":
-      return "bg-green-50 text-green-700 border border-green-200";
-    case "partial_failed":
-      return "bg-amber-50 text-amber-700 border border-amber-200";
-    case "panic":
-      return "bg-red-50 text-red-700 border border-red-200";
-    default:
-      return "bg-gray-50 text-gray-600 border border-gray-200";
   }
 }
 
@@ -162,236 +118,18 @@ function formatDuration(durationMs: number) {
   return `${minutes}m ${remainSeconds}s`;
 }
 
-function summarizeMessage(message: string) {
-  const text = (message ?? "").trim();
-  if (!text) {
-    return "-";
-  }
-  if (text.length <= 26) {
-    return text;
-  }
-  return `${text.slice(0, 26)}...`;
-}
-
-function formatMediaType(mediaType: string) {
-  switch (mediaType) {
-    case "movie":
-      return "电影";
-    case "tv":
-      return "剧集";
-    case "person":
-      return "人物";
-    default:
-      return mediaType || "-";
-  }
-}
-
-function formatFieldList(fields: string[] | undefined) {
-  if (!Array.isArray(fields) || fields.length === 0) {
-    return "-";
-  }
-  return fields.join("、");
-}
-
-function visibleFieldList(fields: string[] | undefined) {
-  return Array.isArray(fields) ? fields.filter((field) => !!field) : [];
-}
-
-function hasFieldList(fields: string[] | undefined) {
-  return visibleFieldList(fields).length > 0;
-}
-
-function hasLocalFieldSummary(entry: {
-  changed_fields?: string[];
-  overwritten_fields?: string[];
-  kept_local_fields?: string[];
-}) {
-  return hasFieldList(entry.changed_fields) || hasFieldList(entry.overwritten_fields) || hasFieldList(entry.kept_local_fields);
-}
-
-function fieldChangeCount(changes: Array<{ field: string; diff_type: string; before: string; after: string }> | undefined) {
-  return Array.isArray(changes) ? changes.length : 0;
-}
-
-function formatFieldChanges(
-  changes: Array<{ field: string; diff_type: string; before: string; after: string }> | undefined,
-) {
-  if (!Array.isArray(changes) || changes.length === 0) {
-    return "-";
-  }
-  return changes
-    .map((item) => `${item.field} [${item.diff_type || "remote"}]\n前: ${item.before || "-"}\n后: ${item.after || "-"}`)
-    .join("\n\n");
-}
-
-function logsTotalPages() {
-  return Math.max(1, Math.ceil(logsTotal.value / logsPageSize.value));
-}
-
-function detailTotalPages(total: number, pageSize: number) {
-  const safeTotal = Math.max(0, Number(total) || 0);
-  const safePageSize = normalizeNumber(Number(pageSize) || 10, 1, 100);
-  return Math.max(1, Math.ceil(safeTotal / safePageSize));
-}
-
-function detailSyncedTotalPages() {
-  return detailTotalPages(activeLogDetail.value?.synced ?? 0, detailSyncedPageSize.value);
-}
-
-function detailFailedTotalPages() {
-  return detailTotalPages(activeLogDetail.value?.failed ?? 0, detailFailedPageSize.value);
-}
-
-async function loadAutoSyncLogs(page = logsPage.value) {
+async function loadAutoSyncLogs() {
   logsLoading.value = true;
 
   try {
-    const safePage = Math.max(1, Math.trunc(page));
-    const resp = await getAutoSyncLogs({
-      page: safePage,
-      page_size: logsPageSize.value,
-      status: logsStatus.value || undefined,
-    });
+    const resp = await getAutoSyncLogs({ page: 1, page_size: 1 });
     const data = resp.data;
     logsItems.value = Array.isArray(data.results) ? data.results : [];
-    logsTotal.value = Math.max(0, Number(data.total) || 0);
-    logsPage.value = normalizeNumber(Number(data.page), 1, logsTotalPages());
   } catch {
-    // errors shown via global toast
+    // 错误已由全局请求拦截器提示，这里保留当前最近执行记录。
   } finally {
     logsLoading.value = false;
   }
-}
-
-async function refreshLogs() {
-  await loadAutoSyncLogs(logsPage.value);
-}
-
-function openClearLogsConfirm() {
-  clearLogsConfirmVisible.value = true;
-}
-
-function closeClearLogsConfirm() {
-  if (logsClearing.value) {
-    return;
-  }
-  clearLogsConfirmVisible.value = false;
-}
-
-async function clearLogs() {
-  logsClearing.value = true;
-
-  try {
-    const resp = await clearAutoSyncLogs();
-    showToastNotice(resp.data.message || "执行日志已清空");
-    closeLogDetail();
-    logsPage.value = 1;
-    await loadAutoSyncLogs(1);
-    clearLogsConfirmVisible.value = false;
-  } catch {
-    // errors shown via global toast
-  } finally {
-    logsClearing.value = false;
-  }
-}
-
-async function applyLogStatusFilter() {
-  logsPage.value = 1;
-  await loadAutoSyncLogs(1);
-}
-
-async function goToLogsPage(page: number) {
-  const target = normalizeNumber(page, 1, logsTotalPages());
-  await loadAutoSyncLogs(target);
-}
-
-async function loadLogDetail(id: number, params: AdminAutoSyncLogDetailParams = {}, reset = false) {
-  detailLoading.value = true;
-  activeLogId.value = id;
-  if (reset) {
-    activeLogDetail.value = null;
-  }
-
-  try {
-    const resp = await getAutoSyncLogDetail(id, {
-      synced_page: params.synced_page ?? detailSyncedPage.value,
-      synced_page_size: params.synced_page_size ?? detailSyncedPageSize.value,
-      failed_page: params.failed_page ?? detailFailedPage.value,
-      failed_page_size: params.failed_page_size ?? detailFailedPageSize.value,
-    });
-    const data = resp.data;
-    if (!detailModalVisible.value || activeLogId.value !== id) {
-      return;
-    }
-    activeLogDetail.value = data;
-    detailSyncedPageSize.value = normalizeNumber(Number(data.synced_page_size) || detailSyncedPageSize.value, 1, 100);
-    detailFailedPageSize.value = normalizeNumber(Number(data.failed_page_size) || detailFailedPageSize.value, 1, 100);
-    detailSyncedPage.value = normalizeNumber(
-      Number(data.synced_page) || 1,
-      1,
-      detailTotalPages(data.synced, detailSyncedPageSize.value),
-    );
-    detailFailedPage.value = normalizeNumber(
-      Number(data.failed_page) || 1,
-      1,
-      detailTotalPages(data.failed, detailFailedPageSize.value),
-    );
-  } catch {
-    if (!detailModalVisible.value || activeLogId.value !== id) {
-      return;
-    }
-  } finally {
-    if (activeLogId.value === id) {
-      detailLoading.value = false;
-    }
-  }
-}
-
-async function openLogDetail(item: AdminAutoSyncLogItem) {
-  detailModalVisible.value = true;
-  detailSyncedPage.value = 1;
-  detailFailedPage.value = 1;
-  await loadLogDetail(
-    item.id,
-    {
-      synced_page: 1,
-      synced_page_size: detailSyncedPageSize.value,
-      failed_page: 1,
-      failed_page_size: detailFailedPageSize.value,
-    },
-    true,
-  );
-}
-
-async function goToDetailSyncedPage(page: number) {
-  if (!activeLogId.value) {
-    return;
-  }
-  const target = normalizeNumber(page, 1, detailSyncedTotalPages());
-  await loadLogDetail(activeLogId.value, {
-    synced_page: target,
-    failed_page: detailFailedPage.value,
-  });
-}
-
-async function goToDetailFailedPage(page: number) {
-  if (!activeLogId.value) {
-    return;
-  }
-  const target = normalizeNumber(page, 1, detailFailedTotalPages());
-  await loadLogDetail(activeLogId.value, {
-    synced_page: detailSyncedPage.value,
-    failed_page: target,
-  });
-}
-
-function closeLogDetail() {
-  detailModalVisible.value = false;
-  detailLoading.value = false;
-  activeLogDetail.value = null;
-  activeLogId.value = null;
-  detailSyncedPage.value = 1;
-  detailFailedPage.value = 1;
 }
 
 async function loadSettings() {
@@ -487,7 +225,7 @@ async function triggerAutoSyncNow() {
     const data = resp.data;
     syncRunning.value = !!data.running;
     showToastNotice(data.message || "已触发一次立即同步任务", "success");
-    await loadAutoSyncLogs(1);
+    await loadAutoSyncLogs();
   } catch {
     // errors shown via global toast
   } finally {
@@ -496,7 +234,7 @@ async function triggerAutoSyncNow() {
 }
 
 async function reloadAll() {
-  await Promise.all([loadSettings(), loadAutoSyncLogs(logsPage.value)]);
+  await Promise.all([loadSettings(), loadAutoSyncLogs()]);
 }
 
 onMounted(reloadAll);
@@ -508,7 +246,7 @@ onMounted(reloadAll);
       <div class="min-w-0">
         <p class="section-label">系统设置</p>
         <h2 class="library-toolbar-title">运行配置</h2>
-        <p class="mt-1 text-sm text-black/55">统一管理 TMDB 网络代理、库内定时同步任务和执行日志。</p>
+        <p class="mt-1 text-sm text-black/55">统一管理 TMDB 网络代理和库内定时同步任务。</p>
       </div>
 
       <div class="library-toolbar-actions">
@@ -693,357 +431,6 @@ onMounted(reloadAll);
         </div>
       </div>
     </section>
-
-    <div class="card settings-card-wide settings-log-card">
-      <div class="settings-log-header">
-        <div>
-          <p class="section-label">Logs</p>
-          <h3 class="settings-section-title">定时任务执行日志</h3>
-          <p class="settings-note">最近执行记录会持久化到数据库，可按状态筛选查看。</p>
-        </div>
-
-        <div class="settings-log-actions">
-          <label class="settings-log-filter">
-            状态
-            <GlassSelect
-              v-model="logsStatus"
-              :options="logStatusOptions"
-              :disabled="logsLoading || logsClearing"
-              class="min-w-[136px]"
-              @change="applyLogStatusFilter"
-            />
-          </label>
-
-          <button class="btn-soft disabled:opacity-60" :disabled="logsLoading || logsClearing" @click="refreshLogs">
-            {{ logsLoading ? "刷新中..." : "刷新日志" }}
-          </button>
-          <button
-            class="btn-danger-soft disabled:opacity-60"
-            :disabled="logsLoading || logsClearing"
-            @click="openClearLogsConfirm"
-          >
-            {{ logsClearing ? "清空中..." : "清空日志" }}
-          </button>
-        </div>
-      </div>
-
-      <div class="table-shell settings-table-shell">
-        <table class="min-w-full text-sm settings-log-table">
-          <thead class="table-head text-left text-black/70">
-            <tr>
-              <th class="px-3 py-2 font-medium">触发时间</th>
-              <th class="px-3 py-2 font-medium">策略</th>
-              <th class="px-3 py-2 font-medium">状态</th>
-              <th class="px-3 py-2 font-medium">检查/同步/失败</th>
-              <th class="px-3 py-2 font-medium">耗时</th>
-              <th class="px-3 py-2 font-medium">摘要</th>
-              <th class="px-3 py-2 font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in logsItems" :key="item.id" class="table-row-hover">
-              <td class="px-3 py-2">
-                <p class="settings-table-primary">{{ formatDateTime(item.triggered_at) }}</p>
-                <p class="mt-1 text-xs text-black/45">{{ item.cron_expr || "-" }}</p>
-              </td>
-              <td class="px-3 py-2">
-                <p class="settings-table-primary">{{ formatMode(item.mode) }}</p>
-                <p class="mt-1 text-xs text-black/45">批大小 {{ item.batch_size }}</p>
-              </td>
-              <td class="px-3 py-2">
-                <span class="settings-status-pill" :class="statusClass(item.status)">
-                  {{ formatStatus(item.status) }}
-                </span>
-              </td>
-              <td class="px-3 py-2 whitespace-nowrap">
-                <span class="settings-count-pill">{{ item.checked }}</span>
-                <span class="settings-count-pill settings-count-success">{{ item.synced }}</span>
-                <span class="settings-count-pill settings-count-danger">{{ item.failed }}</span>
-              </td>
-              <td class="px-3 py-2 whitespace-nowrap">{{ formatDuration(item.duration_ms) }}</td>
-              <td class="px-3 py-2 text-black/70">
-                <span class="settings-log-summary">{{ summarizeMessage(item.message) }}</span>
-              </td>
-              <td class="px-3 py-2">
-                <button class="btn-soft-xs px-2.5 py-1" @click="openLogDetail(item)">详情</button>
-              </td>
-            </tr>
-            <tr v-if="!logsLoading && logsItems.length === 0">
-              <td colspan="7" class="px-3 py-6 text-center text-black/55">暂无执行日志</td>
-            </tr>
-            <tr v-if="logsLoading">
-              <td colspan="7" class="px-3 py-6 text-center text-black/55">日志加载中...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="settings-pagination-row">
-        <p>共 {{ logsTotal }} 条，当前第 {{ logsPage }} / {{ logsTotalPages() }} 页</p>
-        <div class="flex items-center gap-2">
-          <button
-            class="btn-soft px-3 py-1.5 disabled:opacity-60"
-            :disabled="logsLoading || logsPage <= 1"
-            @click="goToLogsPage(logsPage - 1)"
-          >
-            上一页
-          </button>
-          <button
-            class="btn-soft px-3 py-1.5 disabled:opacity-60"
-            :disabled="logsLoading || logsPage >= logsTotalPages()"
-            @click="goToLogsPage(logsPage + 1)"
-          >
-            下一页
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div
-      v-if="detailModalVisible"
-      class="fixed inset-0 z-[1300] flex items-center justify-center bg-black/55 p-3 sm:p-4"
-      role="dialog"
-      aria-modal="true"
-      @click.self="closeLogDetail"
-    >
-      <div class="panel-glass settings-detail-modal max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-lg">
-        <div class="modal-header-dark">
-          <div>
-            <p class="section-label">Run Detail</p>
-            <h4 class="text-base font-semibold">
-              执行日志明细
-              <span v-if="activeLogDetail" class="text-sm text-black/55">#{{ activeLogDetail.id }}</span>
-            </h4>
-          </div>
-          <button class="btn-soft px-3 py-1.5" @click="closeLogDetail">关闭</button>
-        </div>
-
-        <div class="settings-detail-scroll max-h-[calc(92vh-72px)] overflow-y-auto px-4 py-4 sm:px-5">
-          <p v-if="detailLoading && !activeLogDetail" class="text-sm text-black/60">明细加载中...</p>
-
-          <template v-if="activeLogDetail">
-            <p v-if="detailLoading" class="mb-3 text-xs text-black/50">分页加载中...</p>
-            <div class="settings-detail-summary-grid">
-              <article class="settings-detail-summary-item">
-                <span>触发时间</span>
-                <strong>{{ formatDateTime(activeLogDetail.triggered_at) }}</strong>
-                <small>{{ activeLogDetail.cron_expr || "-" }}</small>
-              </article>
-              <article class="settings-detail-summary-item">
-                <span>同步策略</span>
-                <strong>{{ formatMode(activeLogDetail.mode) }}</strong>
-                <small>批大小 {{ activeLogDetail.batch_size }}</small>
-              </article>
-              <article class="settings-detail-summary-item">
-                <span>状态</span>
-                <strong>{{ formatStatus(activeLogDetail.status) }}</strong>
-                <small>耗时 {{ formatDuration(activeLogDetail.duration_ms) }}</small>
-              </article>
-              <article class="settings-detail-summary-item">
-                <span>检查 / 同步 / 失败</span>
-                <strong
-                  >{{ activeLogDetail.checked }} / {{ activeLogDetail.synced }} / {{ activeLogDetail.failed }}</strong
-                >
-                <small>{{ activeLogDetail.message || "-" }}</small>
-              </article>
-            </div>
-
-            <div class="settings-detail-section">
-              <div class="settings-detail-section-header">
-                <div>
-                  <h5 class="text-sm font-semibold text-green-700">同步成功项</h5>
-                  <p class="settings-note">展示成功同步条目、远端差异字段和本地字段处理结果。</p>
-                </div>
-                <span class="badge">{{ activeLogDetail.synced }} 条</span>
-              </div>
-              <div class="table-shell settings-table-shell">
-                <table class="min-w-full text-sm settings-detail-table settings-detail-table-fixed settings-detail-success-table">
-                  <colgroup>
-                    <col class="settings-detail-col-media" />
-                    <col class="settings-detail-col-remote" />
-                    <col class="settings-detail-col-local" />
-                    <col class="settings-detail-col-message" />
-                  </colgroup>
-                  <thead class="table-head text-left text-black/70">
-                    <tr>
-                      <th class="px-3 py-2 font-medium">媒体</th>
-                      <th class="px-3 py-2 font-medium">远端差异</th>
-                      <th class="px-3 py-2 font-medium">本地处理</th>
-                      <th class="px-3 py-2 font-medium">信息</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr
-                      v-for="(entry, idx) in activeLogDetail.synced_list"
-                      :key="`synced-${idx}-${entry.media_type}-${entry.tmdb_id}`"
-                      class="table-row-hover"
-                    >
-                      <td class="px-3 py-2">
-                        <div class="settings-media-cell">
-                          <span class="settings-media-type">{{ formatMediaType(entry.media_type) }}</span>
-                          <div>
-                            <p class="settings-table-primary line-clamp-2">{{ entry.name || "-" }}</p>
-                            <p class="settings-table-meta">TMDB ID {{ entry.tmdb_id || "-" }}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td class="px-3 py-2">
-                        <div v-if="visibleFieldList(entry.remote_diff_fields).length" class="settings-chip-list">
-                          <span v-for="field in visibleFieldList(entry.remote_diff_fields)" :key="field">{{ field }}</span>
-                        </div>
-                        <span v-else class="settings-empty-value">-</span>
-                        <details v-if="fieldChangeCount(entry.field_changes)" class="settings-field-detail">
-                          <summary>字段明细 {{ fieldChangeCount(entry.field_changes) }} 项</summary>
-                          <pre class="settings-diff-pre settings-diff-pre-compact">{{
-                            formatFieldChanges(entry.field_changes)
-                          }}</pre>
-                        </details>
-                      </td>
-                      <td class="px-3 py-2">
-                        <div v-if="hasLocalFieldSummary(entry)" class="settings-field-stack">
-                          <div v-if="hasFieldList(entry.changed_fields)">
-                            <span>变更</span>
-                            <p>{{ formatFieldList(entry.changed_fields) }}</p>
-                          </div>
-                          <div v-if="hasFieldList(entry.overwritten_fields)">
-                            <span>覆盖</span>
-                            <p>{{ formatFieldList(entry.overwritten_fields) }}</p>
-                          </div>
-                          <div v-if="hasFieldList(entry.kept_local_fields)">
-                            <span>保留</span>
-                            <p>{{ formatFieldList(entry.kept_local_fields) }}</p>
-                          </div>
-                        </div>
-                        <span v-else class="settings-empty-value">-</span>
-                      </td>
-                      <td class="px-3 py-2 text-black/70">
-                        <p class="settings-detail-message">{{ entry.message || "-" }}</p>
-                      </td>
-                    </tr>
-                    <tr v-if="activeLogDetail.synced_list.length === 0">
-                      <td colspan="4" class="px-3 py-4 text-center text-black/55">无成功同步明细</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div class="settings-pagination-row settings-pagination-row-sm">
-                <p>
-                  共 {{ activeLogDetail.synced }} 条，当前第 {{ detailSyncedPage }} / {{ detailSyncedTotalPages() }} 页
-                </p>
-                <div class="flex items-center gap-2">
-                  <button
-                    class="btn-soft px-3 py-1.5 disabled:opacity-60"
-                    :disabled="detailLoading || detailSyncedPage <= 1"
-                    @click="goToDetailSyncedPage(detailSyncedPage - 1)"
-                  >
-                    上一页
-                  </button>
-                  <button
-                    class="btn-soft px-3 py-1.5 disabled:opacity-60"
-                    :disabled="detailLoading || detailSyncedPage >= detailSyncedTotalPages()"
-                    @click="goToDetailSyncedPage(detailSyncedPage + 1)"
-                  >
-                    下一页
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-detail-section">
-              <div class="settings-detail-section-header">
-                <div>
-                  <h5 class="text-sm font-semibold text-red-700">同步失败项</h5>
-                  <p class="settings-note">失败条目会保留原因，便于定位网络、数据或接口异常。</p>
-                </div>
-                <span class="badge">{{ activeLogDetail.failed }} 条</span>
-              </div>
-              <div class="table-shell settings-table-shell">
-                <table class="min-w-full text-sm settings-detail-table settings-detail-table-fixed settings-detail-failed-table">
-                  <colgroup>
-                    <col class="settings-detail-col-media" />
-                    <col class="settings-detail-col-failure" />
-                  </colgroup>
-                  <thead class="table-head text-left text-black/70">
-                    <tr>
-                      <th class="px-3 py-2 font-medium">媒体</th>
-                      <th class="px-3 py-2 font-medium">失败原因</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr
-                      v-for="(entry, idx) in activeLogDetail.failed_list"
-                      :key="`failed-${idx}-${entry.media_type}-${entry.tmdb_id}`"
-                      class="table-row-hover"
-                    >
-                      <td class="px-3 py-2">
-                        <div class="settings-media-cell">
-                          <span class="settings-media-type settings-media-type-danger">
-                            {{ formatMediaType(entry.media_type) }}
-                          </span>
-                          <div>
-                            <p class="settings-table-primary line-clamp-2">{{ entry.name || "-" }}</p>
-                            <p class="settings-table-meta">TMDB ID {{ entry.tmdb_id || "-" }}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td class="px-3 py-2 text-black/70">
-                        <p class="settings-detail-message">{{ entry.message || "-" }}</p>
-                      </td>
-                    </tr>
-                    <tr v-if="activeLogDetail.failed_list.length === 0">
-                      <td colspan="2" class="px-3 py-4 text-center text-black/55">无失败明细</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div class="settings-pagination-row settings-pagination-row-sm">
-                <p>
-                  共 {{ activeLogDetail.failed }} 条，当前第 {{ detailFailedPage }} / {{ detailFailedTotalPages() }} 页
-                </p>
-                <div class="flex items-center gap-2">
-                  <button
-                    class="btn-soft px-3 py-1.5 disabled:opacity-60"
-                    :disabled="detailLoading || detailFailedPage <= 1"
-                    @click="goToDetailFailedPage(detailFailedPage - 1)"
-                  >
-                    上一页
-                  </button>
-                  <button
-                    class="btn-soft px-3 py-1.5 disabled:opacity-60"
-                    :disabled="detailLoading || detailFailedPage >= detailFailedTotalPages()"
-                    @click="goToDetailFailedPage(detailFailedPage + 1)"
-                  >
-                    下一页
-                  </button>
-                </div>
-              </div>
-            </div>
-          </template>
-        </div>
-      </div>
-    </div>
-
-    <div
-      v-if="clearLogsConfirmVisible"
-      class="fixed inset-0 z-[1300] flex items-center justify-center bg-black/45 p-4"
-      role="dialog"
-      aria-modal="true"
-      @click.self="closeClearLogsConfirm"
-    >
-      <div class="panel-glass w-full max-w-md rounded-lg p-5">
-        <h4 class="text-base font-semibold text-red-700">确认清空执行日志</h4>
-        <p class="mt-2 text-sm text-black/70">确认要清空所有执行日志吗？清空后无法恢复。</p>
-
-        <div class="mt-5 flex items-center justify-end gap-2">
-          <button class="btn-soft disabled:opacity-60" :disabled="logsClearing" @click="closeClearLogsConfirm">
-            取消
-          </button>
-          <button class="btn-danger-soft disabled:opacity-60" :disabled="logsClearing" @click="clearLogs">
-            {{ logsClearing ? "清空中..." : "确认清空" }}
-          </button>
-        </div>
-      </div>
-    </div>
 
     <ToastNotice :visible="toastVisible" :message="toastText" :tone="toastTone" @close="closeToastNotice" />
   </section>

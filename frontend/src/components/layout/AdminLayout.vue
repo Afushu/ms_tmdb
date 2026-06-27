@@ -51,6 +51,7 @@ const currentSection = computed(() =>
   currentMenu.value?.section ?? String(route.meta.section ?? (route.path === "/" ? "工作台" : "系统")),
 );
 const currentTitle = computed(() => String(route.meta.title ?? currentMenu.value?.title ?? "首页"));
+const isLogsPage = computed(() => route.path === "/logs");
 
 const { closeAllTabs, closeLeftTabs, closeOtherTabs, closeRightTabs, closeTab, openedTabs } = useAdminTabs({
   currentSection,
@@ -131,7 +132,7 @@ onBeforeUnmount(() => {
       @click="sidebarOpen = false"
     ></button>
 
-    <section class="admin-workspace">
+    <section class="admin-workspace" :class="{ 'admin-workspace-fixed': isLogsPage }">
       <AdminTopbar
         v-model:search-query="topbarSearchQuery"
         :current-section="currentSection"
@@ -154,7 +155,10 @@ onBeforeUnmount(() => {
         @close-right="closeRightTabs"
       />
 
-      <main class="page-shell admin-content" :class="{ 'admin-content-compact': preferences.compact }">
+      <main
+        class="page-shell admin-content"
+        :class="{ 'admin-content-compact': preferences.compact, 'admin-content-fixed': isLogsPage }"
+      >
         <section class="vben-page">
           <div class="vben-page-content">
             <RouterView />

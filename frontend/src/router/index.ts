@@ -69,7 +69,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "日志",
       section: "系统管理",
-      order: 40,
+      order: 50,
     },
   },
   {
@@ -78,7 +78,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: "系统设置",
       section: "系统管理",
-      order: 50,
+      order: 40,
     },
   },
   { path: "/proxy-settings", redirect: "/system-settings", meta: { hideMenu: true, hideTab: true } },
