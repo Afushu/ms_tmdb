@@ -293,6 +293,7 @@
 
 [data-theme="mslight"] .field-control,
 [data-theme="mslight"] .field-control-xs,
+[data-theme="mslight"] .library-search-input,
 [data-theme="mslight"] .home-search-input,
 [data-theme="mslight"] select.field-control,
 [data-theme="mslight"] .check-control,
@@ -305,6 +306,7 @@
 
 [data-theme="mslight"] .field-control::placeholder,
 [data-theme="mslight"] .field-control-xs::placeholder,
+[data-theme="mslight"] .library-search-input::placeholder,
 [data-theme="mslight"] .home-search-input::placeholder {
   color: #98a2b3;
 }
@@ -342,6 +344,29 @@
   border-color: var(--border-muted);
 }
 
+[data-theme="mslight"] .field-group-box {
+  background: color-mix(in srgb, var(--accent) 5%, #fff);
+  border-color: var(--accent-active-border);
+}
+
+[data-theme="mslight"] .field-choice-pill {
+  color: #344054;
+  background: color-mix(in srgb, var(--accent) 8%, #fff);
+  border-color: var(--accent-active-border);
+}
+
+[data-theme="mslight"] .field-choice-pill:hover {
+  color: #111827;
+  background: color-mix(in srgb, var(--accent) 14%, #fff);
+}
+
+[data-theme="mslight"] .field-choice-pill:has(.check-control:checked) {
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  border-color: var(--accent-active-border);
+  box-shadow: 0 6px 14px var(--accent-ring);
+}
+
 [data-theme="mslight"] .table-row-hover {
   border-top-color: var(--border-muted);
 }
@@ -371,7 +396,6 @@
 [data-theme="mslight"] .search-item,
 [data-theme="mslight"] .settings-detail-summary-item,
 [data-theme="mslight"] .logs-detail-overview,
-[data-theme="mslight"] .field-group-box,
 [data-theme="mslight"] .season-editor-box,
 [data-theme="mslight"] .episode-card,
 [data-theme="mslight"] .sync-option-card,
@@ -631,15 +655,11 @@
 
 [data-theme="mslight"] .detail-alert-title,
 [data-theme="mslight"] .detail-alert-text,
-[data-theme="mslight"] .detail-alert-action,
-[data-theme="mslight"] .poster-rating,
-[data-theme="mslight"] .search-score-badge {
+[data-theme="mslight"] .detail-alert-action {
   color: #ad6800;
 }
 
-[data-theme="mslight"] .detail-alert-action,
-[data-theme="mslight"] .poster-rating,
-[data-theme="mslight"] .search-score-badge {
+[data-theme="mslight"] .detail-alert-action {
   background: #fffbe6;
   border-color: #ffe58f;
 }

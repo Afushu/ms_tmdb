@@ -285,7 +285,8 @@ async function confirmDeleteCurrentMovie() {
       path: "/library",
       query: { tab: "movie" },
     });
-  } catch { /* handled by global toast */
+  } catch {
+    /* handled by global toast */
   } finally {
     deleting.value = false;
   }
@@ -306,7 +307,8 @@ async function loadMovieCredits(force = false) {
     }
     castMembers.value = normalizeCastMembers(resp.data);
     creditsLoaded.value = true;
-  } catch { /* handled by global toast */
+  } catch {
+    /* handled by global toast */
   } finally {
     if (requestSeq === creditsReqSeq) {
       creditsLoading.value = false;
@@ -375,7 +377,8 @@ async function checkRemoteDiffAndPrompt(force = false) {
     remoteDiffMessage.value = "";
     remoteDiffDecision.value = "has_diff_pending";
     comparedRemoteId.value = movieId.value;
-  } catch { /* handled by global toast */
+  } catch {
+    /* handled by global toast */
   } finally {
     checkingRemoteDiff.value = false;
   }
@@ -419,7 +422,8 @@ async function loadData(options: { force?: boolean; checkRemoteDiff?: boolean } 
       await checkRemoteDiffAndPrompt();
     }
     scheduleDeferredLoadsForDetail();
-  } catch { /* handled by global toast */
+  } catch {
+    /* handled by global toast */
   } finally {
     if (requestSeq === loadReqSeq) {
       loading.value = false;
@@ -542,7 +546,8 @@ async function saveMovieChanges() {
       return;
     }
     await loadData({ force: true });
-  } catch { /* handled by global toast */
+  } catch {
+    /* handled by global toast */
   } finally {
     saving.value = false;
   }
@@ -614,7 +619,9 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="mt-3 flex flex-wrap gap-2">
-            <span class="badge">评分 {{ detail.vote_average?.toFixed(1) ?? "-" }}</span>
+            <span class="rating-badge">
+              {{ detail.vote_average == null ? "-" : `${detail.vote_average.toFixed(1)} 分` }}
+            </span>
             <span class="badge">上映 {{ detail.release_date ?? "-" }}</span>
             <span v-if="detail.runtime" class="badge">片长 {{ detail.runtime }} 分钟</span>
             <span class="badge">{{ formatStatusLabel(detail.status) }}</span>
@@ -632,12 +639,7 @@ onBeforeUnmount(() => {
           </p>
 
           <div
-            v-if="
-              checkingRemoteDiff ||
-              remoteDiffNotice ||
-              remoteDiffMessage ||
-              remoteDiffDecision === 'no_diff'
-            "
+            v-if="checkingRemoteDiff || remoteDiffNotice || remoteDiffMessage || remoteDiffDecision === 'no_diff'"
             class="detail-alert"
           >
             <p v-if="checkingRemoteDiff" class="text-xs text-amber-700">正在检测远程数据差异...</p>

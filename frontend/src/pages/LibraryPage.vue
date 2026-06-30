@@ -222,7 +222,9 @@ async function loadData() {
     const normalized = normalizeListResponse(resp.data);
     items.value = normalized.results;
     total.value = normalized.total;
-  } catch { /* handled by global toast */ } finally {
+  } catch {
+    /* handled by global toast */
+  } finally {
     if (requestSeq === loadReqSeq) {
       loading.value = false;
     }
@@ -359,7 +361,9 @@ async function uploadCreateImage(mediaType: MediaTab, field: "poster_path" | "ba
     } else {
       tvCreateForm.value[field] = path;
     }
-  } catch { /* handled by global toast */ } finally {
+  } catch {
+    /* handled by global toast */
+  } finally {
     uploadingKey.value = "";
     input.value = "";
   }
@@ -416,7 +420,9 @@ async function submitCreate() {
       closeCreatePanel();
       await loadData();
       await router.push(`/movie/${createdID}`);
-    } catch { /* handled by global toast */ } finally {
+    } catch {
+      /* handled by global toast */
+    } finally {
       creating.value = false;
     }
     return;
@@ -476,7 +482,9 @@ async function submitCreate() {
     closeCreatePanel();
     await loadData();
     await router.push(`/tv/${createdID}`);
-  } catch { /* handled by global toast */ } finally {
+  } catch {
+    /* handled by global toast */
+  } finally {
     creating.value = false;
   }
 }
@@ -516,7 +524,9 @@ async function confirmDeleteItem() {
     }
     await loadData();
     closeDeleteModal();
-  } catch { /* handled by global toast */ } finally {
+  } catch {
+    /* handled by global toast */
+  } finally {
     deletingId.value = null;
   }
 }
@@ -587,73 +597,59 @@ onMounted(loadData);
 
 <template>
   <section class="library-toolbar card">
-    <div class="min-w-0">
-      <p class="section-label">本地库</p>
-      <h2 class="library-toolbar-title">{{ activeTab === "movie" ? "电影库" : "剧集库" }}</h2>
-      <p class="mt-1 text-sm text-black/55">管理本地缓存、手动新建条目，并快速进入详情页处理字段覆盖。</p>
+    <div class="library-toolbar-main">
+      <div class="library-toolbar-copy">
+        <p class="section-label">本地库</p>
+        <h2 class="library-toolbar-title">{{ activeTab === "movie" ? "电影库" : "剧集库" }}</h2>
+        <p class="mt-1 text-sm text-black/55">管理本地缓存、手动新建条目，并快速进入详情页处理字段覆盖。</p>
+      </div>
     </div>
 
-    <div class="library-toolbar-actions">
-      <div class="glass-pill gap-2">
-        <button
-          v-for="tab in [
-            { key: 'movie', label: '电影' },
-            { key: 'tv', label: '剧集' },
-          ] as const"
-          :key="tab.key"
-          class="glass-pill-btn px-5"
-          :class="activeTab === tab.key ? 'glass-pill-btn-active' : ''"
-          @click="switchTab(tab.key as MediaTab)"
-        >
-          {{ tab.label }}
-        </button>
+    <div class="library-filter-panel">
+      <div v-if="keyword" class="library-filter-header">
+        <span v-if="keyword" class="badge">当前关键词：{{ keyword }}</span>
       </div>
-
-      <div class="glass-pill">
-        <button
-          class="glass-pill-btn px-4 py-1.5 text-xs"
-          :class="viewMode === 'grid' ? 'glass-pill-btn-active' : ''"
-          @click="viewMode = 'grid'"
-        >
-          卡片
-        </button>
-        <button
-          class="glass-pill-btn px-4 py-1.5 text-xs"
-          :class="viewMode === 'table' ? 'glass-pill-btn-active' : ''"
-          @click="viewMode = 'table'"
-        >
-          表格
-        </button>
+      <div class="library-filter-form">
+        <div class="library-search-combo">
+          <div class="library-switch library-media-switch library-search-media-switch" role="group" aria-label="媒体类型">
+            <button
+              v-for="tab in [
+                { key: 'movie', label: '电影' },
+                { key: 'tv', label: '剧集' },
+              ] as const"
+              :key="tab.key"
+              type="button"
+              class="library-switch-btn"
+              :class="activeTab === tab.key ? 'library-switch-btn-active' : ''"
+              @click="switchTab(tab.key as MediaTab)"
+            >
+              {{ tab.label }}
+            </button>
+          </div>
+          <input
+            v-model="keywordInput"
+            class="library-search-input text-sm"
+            placeholder="快速筛选，支持 TMDB ID、片名或剧名；可切换包含/前缀匹配。"
+            @keyup.enter="applySearch"
+          />
+        </div>
+        <GlassSelect v-model="searchMode" :options="searchModeOptions" />
+        <div class="library-filter-actions">
+          <button class="btn-primary library-action-btn" @click="applySearch">搜索</button>
+          <button class="btn-soft library-action-btn" @click="resetSearch">重置</button>
+        </div>
       </div>
-
-      <button class="btn-primary" @click="openCreatePanel">
-        {{ createTitle }}
-      </button>
     </div>
   </section>
 
-  <section class="card library-filter-card mt-4">
-    <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
-      <div>
-        <p class="section-label">快速筛选</p>
-        <p class="mt-1 text-xs text-black/55">支持 TMDB ID、片名或剧名；可切换包含/前缀匹配。</p>
-      </div>
-      <span v-if="keyword" class="badge">当前关键词：{{ keyword }}</span>
-    </div>
-    <div class="grid gap-3 md:grid-cols-[1fr_auto_auto_auto] md:items-center">
-      <input
-        v-model="keywordInput"
-        class="w-full field-control text-sm"
-        placeholder="输入 TMDB ID 或片名/剧名关键词"
-        @keyup.enter="applySearch"
-      />
-      <GlassSelect v-model="searchMode" :options="searchModeOptions" />
-      <button class="btn-primary" @click="applySearch">搜索</button>
-      <button class="btn-soft" @click="resetSearch">重置</button>
-    </div>
-  </section>
-
-  <ModalShell :visible="createPanelVisible" :title="createTitle" @close="closeCreatePanel">
+  <ModalShell
+    :visible="createPanelVisible"
+    :title="createTitle"
+    variant="vben"
+    max-width-class="max-w-4xl"
+    content-class="modal-scroll-content max-h-[calc(86vh-120px)] overflow-y-auto px-5 py-4"
+    @close="closeCreatePanel"
+  >
     <LocalMediaCreateForm
       v-model:movie-form="movieCreateForm"
       v-model:tv-form="tvCreateForm"
@@ -668,11 +664,12 @@ onMounted(loadData);
       @upload="uploadCreateImage"
     />
 
-    <div class="mt-4 flex items-center gap-3">
+    <template #footer>
+      <button class="btn-soft library-modal-action-btn" @click="closeCreatePanel">取消</button>
       <button class="btn-primary disabled:opacity-60" :disabled="creating || uploadingKey !== ''" @click="submitCreate">
         {{ creating ? "创建中..." : "创建并进入详情" }}
       </button>
-    </div>
+    </template>
   </ModalShell>
 
   <div
@@ -707,9 +704,30 @@ onMounted(loadData);
       <p class="text-sm text-black/60">
         共 <strong>{{ total }}</strong> 条记录 · 第 {{ page }}/{{ totalPages() }} 页
       </p>
-      <span class="badge"
-        >{{ activeTab === "movie" ? "电影" : "剧集" }} · {{ viewMode === "grid" ? "卡片视图" : "表格视图" }}</span
-      >
+      <div class="library-list-controls">
+        <div class="library-switch library-view-switch" role="group" aria-label="视图模式">
+          <button
+            type="button"
+            class="library-switch-btn"
+            :class="viewMode === 'grid' ? 'library-switch-btn-active' : ''"
+            @click="viewMode = 'grid'"
+          >
+            卡片
+          </button>
+          <button
+            type="button"
+            class="library-switch-btn"
+            :class="viewMode === 'table' ? 'library-switch-btn-active' : ''"
+            @click="viewMode = 'table'"
+          >
+            表格
+          </button>
+        </div>
+
+        <button type="button" class="btn-primary library-list-create-btn" @click="openCreatePanel">
+          {{ createTitle }}
+        </button>
+      </div>
     </section>
 
     <section v-if="viewMode === 'grid' && items.length" class="mt-4 poster-grid">
@@ -755,7 +773,7 @@ onMounted(loadData);
           <div class="poster-info">
             <p class="truncate text-sm font-medium">{{ item.title || item.name }}</p>
             <p class="poster-meta">
-              <span class="poster-rating">评分 {{ (item.vote_average ?? 0).toFixed(1) }}</span>
+              <span class="rating-badge">{{ (item.vote_average ?? 0).toFixed(1) }} 分</span>
               <span>{{ (item.release_date || item.first_air_date || "").slice(0, 4) }}</span>
             </p>
             <span v-if="item.tmdb_id < 0" class="chip-local-new mt-1 text-[10px]"> 本地新建 </span>
@@ -789,7 +807,9 @@ onMounted(loadData);
               <p class="font-medium">{{ item.title || item.name }}</p>
               <p class="text-xs text-black/50">{{ item.original_title || item.original_name }}</p>
             </td>
-            <td class="px-4 py-3">评分 {{ (item.vote_average ?? 0).toFixed(1) }}</td>
+            <td class="px-4 py-3">
+              <span class="rating-badge">{{ (item.vote_average ?? 0).toFixed(1) }} 分</span>
+            </td>
             <td class="px-4 py-3">{{ item.release_date || item.first_air_date || "-" }}</td>
             <td class="px-4 py-3">
               <span class="text-xs text-black/70">

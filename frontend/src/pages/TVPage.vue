@@ -161,7 +161,9 @@ watch(seasonLocalMessage, (message) => {
           </div>
 
           <div class="mt-3 flex flex-wrap gap-2">
-            <span class="badge">评分 {{ detail.vote_average?.toFixed(1) ?? "-" }}</span>
+            <span class="rating-badge">
+              {{ detail.vote_average == null ? "-" : `${detail.vote_average.toFixed(1)} 分` }}
+            </span>
             <span class="badge">首播 {{ detail.first_air_date ?? "-" }}</span>
             <span v-if="detail.number_of_seasons" class="badge">
               {{ detail.number_of_seasons }} 季 · {{ detail.number_of_episodes }} 集

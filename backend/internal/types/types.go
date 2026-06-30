@@ -173,12 +173,17 @@ type AdminHomeMediaItem struct {
 	TmdbId        int     `json:"tmdb_id"`
 	Title         string  `json:"title"`
 	OriginalTitle string  `json:"original_title"`
+	Overview      string  `json:"overview"`
 	PosterPath    string  `json:"poster_path"`
 	VoteAverage   float64 `json:"vote_average"`
 	AirDate       string  `json:"air_date"`
 	Popularity    float64 `json:"popularity"`
 	VisitCount    int64   `json:"visit_count"`
 	CreatedAt     string  `json:"created_at"`
+}
+
+type AdminHomeReq struct {
+	Limit int `form:"limit,optional"` // 每个看板区块返回数量
 }
 
 type AdminHomeResp struct {

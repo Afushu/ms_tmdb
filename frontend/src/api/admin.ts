@@ -308,6 +308,7 @@ export type AdminHomeMediaItem = {
   tmdb_id: number;
   title: string;
   original_title: string;
+  overview: string;
   poster_path: string;
   vote_average: number;
   air_date: string;
@@ -352,8 +353,10 @@ export function comparePersonRemote(id: number) {
   return http.get<AdminCompareResp>(`/api/admin/compare/person/${id}`);
 }
 
-export function getHomeDashboard() {
-  return http.get<AdminHomeResp>("/api/admin/home");
+export function getHomeDashboard(limit?: number) {
+  return http.get<AdminHomeResp>("/api/admin/home", {
+    params: typeof limit === "number" ? { limit } : undefined,
+  });
 }
 
 export function updateMovie(id: number, payload: Record<string, unknown>) {

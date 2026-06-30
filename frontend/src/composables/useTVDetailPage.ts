@@ -445,7 +445,7 @@ export function useTVDetailPage() {
     if (!Number.isFinite(voteAverage) || voteAverage == null || voteAverage <= 0) {
       return "-";
     }
-    return voteAverage.toFixed(1);
+    return `${voteAverage.toFixed(1)} 分`;
   }
 
   function toPlainRecord(raw: unknown): Record<string, unknown> {

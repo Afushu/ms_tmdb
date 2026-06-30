@@ -10,6 +10,11 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
+const (
+	defaultHomeMediaLimit = 15
+	maxHomeMediaLimit     = 60
+)
+
 type GetHomeDashboardLogic struct {
 	logx.Logger
 	ctx    context.Context
@@ -24,13 +29,14 @@ func NewGetHomeDashboardLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 	}
 }
 
-func (l *GetHomeDashboardLogic) GetHomeDashboard() (resp *types.AdminHomeResp, err error) {
-	latest, err := l.queryLatestHomeMedia()
+func (l *GetHomeDashboardLogic) GetHomeDashboard(req *types.AdminHomeReq) (resp *types.AdminHomeResp, err error) {
+	limit := normalizeHomeMediaLimit(req)
+	latest, err := l.queryLatestHomeMedia(limit)
 	if err != nil {
 		return nil, err
 	}
 
-	hot, err := l.queryHotHomeMedia()
+	hot, err := l.queryHotHomeMedia(limit)
 	if err != nil {
 		return nil, err
 	}
@@ -41,11 +47,22 @@ func (l *GetHomeDashboardLogic) GetHomeDashboard() (resp *types.AdminHomeResp, e
 	}, nil
 }
 
+func normalizeHomeMediaLimit(req *types.AdminHomeReq) int {
+	if req == nil || req.Limit <= 0 {
+		return defaultHomeMediaLimit
+	}
+	if req.Limit > maxHomeMediaLimit {
+		return maxHomeMediaLimit
+	}
+	return req.Limit
+}
+
 type homeMediaRow struct {
 	MediaType     string
 	TmdbId        int
 	Title         string
 	OriginalTitle string
+	Overview      string
 	PosterPath    string
 	VoteAverage   float64
 	AirDate       string
@@ -55,7 +72,7 @@ type homeMediaRow struct {
 }
 
 // queryLatestHomeMedia 只读取本地库中最新入库的电影和剧集，不触发 TMDB popular 回源。
-func (l *GetHomeDashboardLogic) queryLatestHomeMedia() ([]types.AdminHomeMediaItem, error) {
+func (l *GetHomeDashboardLogic) queryLatestHomeMedia(limit int) ([]types.AdminHomeMediaItem, error) {
 	var rows []homeMediaRow
 	if err := l.svcCtx.DB.WithContext(l.ctx).Raw(`
 WITH latest_movies AS (
@@ -64,6 +81,7 @@ WITH latest_movies AS (
     tmdb_id,
     title,
     original_title,
+    overview,
     poster_path,
     vote_average,
     release_date AS air_date,
@@ -73,7 +91,7 @@ WITH latest_movies AS (
   FROM movies
   WHERE deleted_at IS NULL
   ORDER BY created_at DESC, tmdb_id DESC
-  LIMIT 10
+  LIMIT ?
 ),
 latest_tv AS (
   SELECT
@@ -81,6 +99,7 @@ latest_tv AS (
     tmdb_id,
     name AS title,
     original_name AS original_title,
+    overview,
     poster_path,
     vote_average,
     first_air_date AS air_date,
@@ -90,13 +109,14 @@ latest_tv AS (
   FROM tv_series
   WHERE deleted_at IS NULL
   ORDER BY created_at DESC, tmdb_id DESC
-  LIMIT 10
+  LIMIT ?
 )
 SELECT
   media_type,
   tmdb_id,
   title,
   original_title,
+  overview,
   poster_path,
   vote_average,
   air_date,
@@ -109,6 +129,7 @@ FROM (
     tmdb_id,
     title,
     original_title,
+    overview,
     poster_path,
     vote_average,
     air_date,
@@ -122,6 +143,7 @@ FROM (
     tmdb_id,
     title,
     original_title,
+    overview,
     poster_path,
     vote_average,
     air_date,
@@ -131,15 +153,15 @@ FROM (
   FROM latest_tv
 ) AS local_media
 ORDER BY created_at DESC, tmdb_id DESC
-LIMIT 10
-`).Scan(&rows).Error; err != nil {
+LIMIT ?
+`, limit, limit, limit).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 	return convertHomeMediaRows(rows), nil
 }
 
 // queryHotHomeMedia 从近 30 天代理访问日志中按媒体目标聚合访问次数，最终只返回已入库内容。
-func (l *GetHomeDashboardLogic) queryHotHomeMedia() ([]types.AdminHomeMediaItem, error) {
+func (l *GetHomeDashboardLogic) queryHotHomeMedia(limit int) ([]types.AdminHomeMediaItem, error) {
 	var rows []homeMediaRow
 	if err := l.svcCtx.DB.WithContext(l.ctx).Raw(`
 WITH hit_sources AS (
@@ -179,6 +201,7 @@ home_media AS (
     m.tmdb_id,
     m.title,
     m.original_title,
+    m.overview,
     m.poster_path,
     m.vote_average,
     m.release_date AS air_date,
@@ -194,6 +217,7 @@ home_media AS (
     t.tmdb_id,
     t.name AS title,
     t.original_name AS original_title,
+    t.overview,
     t.poster_path,
     t.vote_average,
     t.first_air_date AS air_date,
@@ -209,6 +233,7 @@ SELECT
   tmdb_id,
   title,
   original_title,
+  overview,
   poster_path,
   vote_average,
   air_date,
@@ -217,8 +242,8 @@ SELECT
   created_at
 FROM home_media
 ORDER BY visit_count DESC, created_at DESC, tmdb_id DESC
-LIMIT 10
-`).Scan(&rows).Error; err != nil {
+LIMIT ?
+`, limit).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 	return convertHomeMediaRows(rows), nil
@@ -236,6 +261,7 @@ func convertHomeMediaRows(rows []homeMediaRow) []types.AdminHomeMediaItem {
 			TmdbId:        row.TmdbId,
 			Title:         row.Title,
 			OriginalTitle: row.OriginalTitle,
+			Overview:      row.Overview,
 			PosterPath:    row.PosterPath,
 			VoteAverage:   row.VoteAverage,
 			AirDate:       row.AirDate,

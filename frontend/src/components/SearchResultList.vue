@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { prefetchMediaDetail } from "@/api/prefetch";
 import type { SearchType } from "@/api/search";
 import type { SearchResultItem } from "@/types/media";
 import {
   getSearchResultKey,
-  getSearchResultMediaType,
   getSearchResultRoute,
   getSearchResultSubtitle,
   getSearchResultThumb,
@@ -29,25 +27,12 @@ const visibleItems = computed(() => {
   if (typeof props.limit !== "number") return props.items;
   return props.items.slice(0, props.limit);
 });
-
-function prefetchSearchItem(item: SearchResultItem) {
-  const mediaType = getSearchResultMediaType(item, props.fallbackType);
-  if (mediaType === "movie" || mediaType === "tv" || mediaType === "person") {
-    prefetchMediaDetail(mediaType, Number(item.id));
-  }
-}
 </script>
 
 <template>
   <ul v-if="visibleItems.length" class="grid gap-2 md:grid-cols-2">
     <li v-for="item in visibleItems" :key="getSearchResultKey(item, fallbackType)" class="search-item">
-      <RouterLink
-        :to="getSearchResultRoute(item, fallbackType)"
-        class="flex h-full items-center gap-3"
-        @mouseenter="prefetchSearchItem(item)"
-        @focus="prefetchSearchItem(item)"
-        @touchstart.passive="prefetchSearchItem(item)"
-      >
+      <RouterLink :to="getSearchResultRoute(item, fallbackType)" class="flex h-full items-center gap-3">
         <img
           :src="getSearchResultThumb(item, fallbackType)"
           :alt="getSearchResultTitle(item)"
@@ -61,9 +46,9 @@ function prefetchSearchItem(item: SearchResultItem) {
             {{ item.overview }}
           </p>
         </div>
-        <span v-if="typeof item.vote_average === 'number'" class="search-score-badge">
-          评分 {{ item.vote_average.toFixed(1) }}
-        </span>
+        <span v-if="typeof item.vote_average === 'number'" class="rating-badge"
+          >{{ item.vote_average.toFixed(1) }} 分</span
+        >
       </RouterLink>
     </li>
   </ul>

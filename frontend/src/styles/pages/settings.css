@@ -156,7 +156,11 @@
 
 .logs-hero {
   display: grid;
-  gap: 1rem;
+  gap: 0.55rem;
+}
+
+.logs-hero.card {
+  padding: 0.9rem 1rem;
 }
 
 .logs-hero-head {
@@ -169,17 +173,29 @@
 .logs-hero-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: 0.55rem;
   border-top: 1px solid var(--border-muted);
-  padding-top: 0.9rem;
+  padding-top: 0.55rem;
+}
+
+.logs-hero .library-toolbar-title {
+  margin-top: 0.12rem;
+  font-size: 1.12rem;
+  line-height: 1.2;
+}
+
+.logs-hero .library-toolbar-title + p {
+  margin-top: 0.18rem;
+  font-size: 0.8rem;
+  line-height: 1.3;
 }
 
 .logs-stat-card {
   position: relative;
   min-width: 0;
   overflow: hidden;
-  border-radius: 0.75rem;
-  padding: 0.8rem 0.95rem;
+  border-radius: 0.6rem;
+  padding: 0.48rem 0.72rem;
   color: inherit;
   background: rgba(15, 23, 42, 0.24);
   border: 1px solid var(--border-muted);
@@ -229,16 +245,16 @@
 
 .logs-stat-card strong {
   display: block;
-  margin-top: 0.32rem;
+  margin-top: 0.18rem;
   color: var(--text-main);
-  font-size: 1.16rem;
+  font-size: 0.98rem;
   font-weight: 700;
   line-height: 1.1;
 }
 
 .logs-stat-card small {
-  margin-top: 0.35rem;
-  font-size: 0.7rem;
+  margin-top: 0.2rem;
+  font-size: 0.66rem;
 }
 
 .logs-overview-strip {
@@ -281,7 +297,7 @@
 
 .logs-page-shell .logs-list-shell {
   flex: 1 1 auto;
-  min-height: 12rem;
+  min-height: 0;
   overflow: auto;
 }
 
