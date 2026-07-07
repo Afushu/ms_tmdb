@@ -303,21 +303,6 @@ func diffTopLevelFields(local map[string]interface{}, remote map[string]interfac
 	return diff
 }
 
-func filterDiffFieldsByLocalPatch(diffFields []string, localPatch map[string]interface{}) []string {
-	if len(diffFields) == 0 || len(localPatch) == 0 {
-		return diffFields
-	}
-
-	filtered := make([]string, 0, len(diffFields))
-	for _, field := range diffFields {
-		if _, ok := localPatch[field]; ok {
-			continue
-		}
-		filtered = append(filtered, field)
-	}
-	return filtered
-}
-
 func splitDiffFieldsByLocalPatch(diffFields []string, localPatch map[string]interface{}, remote map[string]interface{}) ([]string, []string) {
 	if len(diffFields) == 0 {
 		return []string{}, []string{}

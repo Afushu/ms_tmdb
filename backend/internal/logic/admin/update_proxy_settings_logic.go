@@ -163,19 +163,6 @@ func (c *configFileLines) write() error {
 	return nil
 }
 
-func writeTmdbConfigValues(configPath string, values map[string]string, order []string) error {
-	configFile, err := readConfigFileLines(configPath)
-	if err != nil {
-		return err
-	}
-
-	configFile.lines, err = applyTmdbConfigValues(configFile.lines, values, order)
-	if err != nil {
-		return err
-	}
-	return configFile.write()
-}
-
 func applyTmdbConfigValues(lines []string, values map[string]string, order []string) ([]string, error) {
 	tmdbFound := false
 	inTmdb := false
@@ -260,15 +247,6 @@ func applyTmdbConfigValues(lines []string, values map[string]string, order []str
 	}
 
 	return lines, nil
-}
-
-func writeTopLevelConfigValues(configPath string, values map[string]string, order []string) error {
-	configFile, err := readConfigFileLines(configPath)
-	if err != nil {
-		return err
-	}
-	configFile.lines = applyTopLevelConfigValues(configFile.lines, values, order)
-	return configFile.write()
 }
 
 func applyTopLevelConfigValues(lines []string, values map[string]string, order []string) []string {

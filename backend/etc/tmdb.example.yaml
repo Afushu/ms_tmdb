@@ -31,4 +31,4 @@ Tmdb:
     StartDelaySecond: 15
   Log:
     RetentionDays: 7
-    BodyLimitBytes: 65536
+    BodyLimitBytes: 1048576

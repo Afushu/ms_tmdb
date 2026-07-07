@@ -382,35 +382,6 @@ type AdminUploadResp struct {
 	Path string `json:"path"`
 }
 
-type DetailReq struct {
-	Id               int    `path:"id"`
-	Language         string `form:"language,optional"`
-	AppendToResponse string `form:"append_to_response,optional"`
-}
-
-type DiscoverReq struct {
-	Language             string `form:"language,optional"`
-	Page                 int    `form:"page,optional,default=1"`
-	Region               string `form:"region,optional"`
-	SortBy               string `form:"sort_by,optional"`
-	WithGenres           string `form:"with_genres,optional"`
-	PrimaryReleaseYear   int    `form:"primary_release_year,optional"`
-	FirstAirDateYear     int    `form:"first_air_date_year,optional"`
-	VoteAverageGte       string `form:"vote_average.gte,optional"`
-	VoteAverageLte       string `form:"vote_average.lte,optional"`
-	WithOriginalLanguage string `form:"with_original_language,optional"`
-}
-
-type FindByExternalIdReq struct {
-	ExternalId     string `path:"external_id"`
-	ExternalSource string `form:"external_source"`
-	Language       string `form:"language,optional"`
-}
-
-type GenreListReq struct {
-	Language string `form:"language,optional"`
-}
-
 type LibraryListReq struct {
 	Page       int    `form:"page,optional,default=1"`
 	PageSize   int    `form:"page_size,optional,default=20"`
@@ -437,41 +408,8 @@ type MovieListResp struct {
 	Results  []MovieListItem `json:"results"`
 }
 
-type PageReq struct {
-	Language string `form:"language,optional"`
-	Page     int    `form:"page,optional,default=1"`
-	Region   string `form:"region,optional"`
-}
-
 type PathIdReq struct {
 	Id int `path:"id"`
-}
-
-type SearchReq struct {
-	Query    string `form:"query"`
-	Language string `form:"language,optional"`
-	Page     int    `form:"page,optional,default=1"`
-	Region   string `form:"region,optional"`
-}
-
-type TrendingReq struct {
-	MediaType  string `path:"media_type"`
-	TimeWindow string `path:"time_window"`
-	Language   string `form:"language,optional"`
-	Page       int    `form:"page,optional,default=1"`
-}
-
-type TvEpisodeReq struct {
-	SeriesId      int    `path:"series_id"`
-	SeasonNumber  int    `path:"season_number"`
-	EpisodeNumber int    `path:"episode_number"`
-	Language      string `form:"language,optional"`
-}
-
-type TvSeasonReq struct {
-	SeriesId     int    `path:"series_id"`
-	SeasonNumber int    `path:"season_number"`
-	Language     string `form:"language,optional"`
 }
 
 type TvSeriesListItem struct {

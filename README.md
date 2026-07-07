@@ -3,7 +3,7 @@
 基于 `go-zero + PostgreSQL + Vue 3` 的 TMDB 代理与本地增强平台。
 
 项目目标：
-- 统一代理 TMDB v3 API（`/api/v3/*`）。
+- 统一代理 TMDB v3 API；对外兼容 `/api/v3/*`、`/v3/*`、`/3/*`，后端内部统一走 `/api/tmdb/*`。
 - 对电影/剧集/人物详情做本地 Read-Through 缓存。
 - 提供管理接口与前端页面，支持本地编辑覆盖与库检索。
 
@@ -78,31 +78,33 @@ docker compose up -d
   - `/movie/:id` 电影详情
   - `/tv/:id` 剧集详情
 - 后端接口：
-  - `/api/v3/*` TMDB 代理接口
+  - `/api/v3/*`、`/v3/*`、`/3/*` TMDB 对外兼容代理入口
+  - `/api/tmdb/*` 后端内部 TMDB 代理入口（反向代理改写后使用）
   - `/api/admin/*` 本地管理接口
 
 ## 其他程序调用（API）
 
 可通过 HTTP 直接调用本服务，适用于脚本、后端服务、工作流平台（如 n8n）等。
 
-- 默认服务地址：`http://localhost:8888`
+- 直连后端地址：`http://localhost:8888`，TMDB 代理入口为 `/api/tmdb/*`
+- 经 nginx / Vite 访问时，对外兼容入口仍为 `/api/v3/*`、`/v3/*`、`/3/*`
 - 返回：`application/json`
 - 鉴权：当前默认无需额外 Token（如后续接入鉴权，以部署配置为准）
 
 ### 1. 读取详情（带本地读穿缓存）
 
 ```bash
-curl "http://localhost:8888/api/v3/movie/550?language=zh-CN&append_to_response=credits,images"
+curl "http://localhost:8888/api/tmdb/movie/550?language=zh-CN&append_to_response=credits,images"
 ```
 
 说明：
 - 无需传 `api_key`，服务端会自动附加 TMDB Key。
-- `/api/v3/movie/{id}`、`/api/v3/tv/{id}`、`/api/v3/person/{id}` 都支持同类调用。
+- 直连后端时使用 `/api/tmdb/movie/{id}`、`/api/tmdb/tv/{id}`、`/api/tmdb/person/{id}`；经 nginx / Vite 访问时可继续使用 `/api/v3/*`、`/v3/*`、`/3/*`。
 
 读取剧集某一季并返回该季 `episodes` 集明细（供三方系统直接调用）：
 
 ```bash
-curl "http://localhost:8888/api/v3/tv/279446/season/1?language=zh-CN"
+curl "http://localhost:8888/api/tmdb/tv/279446/season/1?language=zh-CN"
 ```
 
 说明：
@@ -220,7 +222,7 @@ if cmp_resp.get("has_diff"):
 4. 调用同步接口执行更新  
    `POST /api/admin/sync/movie/{id}` 或 `POST /api/admin/sync/tv/{id}`
 5. 最后读取详情或列表做结果确认  
-   `GET /api/v3/movie/{id}`、`GET /api/v3/tv/{id}`、`GET /api/admin/movies`
+   `GET /api/tmdb/movie/{id}`、`GET /api/tmdb/tv/{id}`、`GET /api/admin/movies`
 
 ## 配置说明
 

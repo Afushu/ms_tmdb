@@ -10,14 +10,14 @@ func TestParseProxyMediaTarget(t *testing.T) {
 		wantTmdbID    int
 	}{
 		{
-			name:          "api v3 movie detail",
-			path:          "/api/v3/movie/550",
+			name:          "api tmdb movie detail",
+			path:          "/api/tmdb/movie/550",
 			wantMediaType: "movie",
 			wantTmdbID:    550,
 		},
 		{
-			name:          "v3 tv nested path",
-			path:          "/v3/tv/1399/season/1",
+			name:          "api tmdb tv nested path",
+			path:          "/api/tmdb/tv/1399/season/1",
 			wantMediaType: "tv",
 			wantTmdbID:    1399,
 		},
@@ -29,17 +29,17 @@ func TestParseProxyMediaTarget(t *testing.T) {
 		},
 		{
 			name:          "local negative id",
-			path:          "/3/movie/-1",
+			path:          "/api/tmdb/movie/-1",
 			wantMediaType: "movie",
 			wantTmdbID:    -1,
 		},
 		{
 			name: "non media path",
-			path: "/3/search/movie",
+			path: "/api/tmdb/search/movie",
 		},
 		{
 			name: "invalid id",
-			path: "/3/tv/latest",
+			path: "/api/tmdb/tv/latest",
 		},
 	}
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { formatJsonText, looksLikeJsonText } from "@/utils/jsonText";
 
 type FoldRange = {
   start: number;
@@ -29,7 +30,8 @@ const parseResult = computed(() => {
       lines: JSON.stringify(parsed, null, 2).split("\n"),
     };
   } catch {
-    return { json: false, text: raw, lines: raw.split("\n") };
+    const text = formatJsonText(raw);
+    return { json: looksLikeJsonText(raw), text, lines: text.split("\n") };
   }
 });
 

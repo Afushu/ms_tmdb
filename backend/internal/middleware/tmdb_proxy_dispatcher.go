@@ -124,24 +124,6 @@ func seasonDetailRoute(handler func(seriesID, seasonNum int, opts *tmdbclient.Re
 	}
 }
 
-func episodeDetailRoute(handler func(seriesID, seasonNum, episodeNum int, opts *tmdbclient.RequestOption) (json.RawMessage, error)) tmdbPatternHandler {
-	return func(matches []string, opts *tmdbclient.RequestOption, _ *http.Request) (json.RawMessage, error) {
-		seriesID, err := parseIntParam(matches[1], "series_id")
-		if err != nil {
-			return nil, err
-		}
-		seasonNum, err := parseIntParam(matches[2], "season_number")
-		if err != nil {
-			return nil, err
-		}
-		episodeNum, err := parseIntParam(matches[3], "episode_number")
-		if err != nil {
-			return nil, err
-		}
-		return handler(seriesID, seasonNum, episodeNum, opts)
-	}
-}
-
 func episodeDetailMappedRoute(
 	handler func(seriesID, seasonNum, episodeNum int, opts *tmdbclient.RequestOption) (json.RawMessage, error),
 	resolver tmdbIDResolver,

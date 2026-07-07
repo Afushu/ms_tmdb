@@ -3,6 +3,7 @@ import type {
   AdminProxyAccessLogDetailResp,
   AdminTmdbRequestLogDetailResp,
 } from "@/api/admin";
+import { formatJsonText } from "@/utils/jsonText";
 
 export type RequestLogDetail = AdminProxyAccessLogDetailResp | AdminTmdbRequestLogDetailResp;
 
@@ -220,15 +221,7 @@ export function upstreamQuery(value: string) {
 }
 
 export function bodyText(text: string | undefined) {
-  const raw = text ?? "";
-  if (!raw) {
-    return "(空)";
-  }
-  try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
-  } catch {
-    return raw;
-  }
+  return formatJsonText(text);
 }
 
 export function bodyMeta(bytes: number, truncated: boolean) {

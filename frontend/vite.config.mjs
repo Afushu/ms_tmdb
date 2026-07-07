@@ -22,6 +22,21 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      "^/api/v3(?=/|$)": {
+        target: "http://localhost:8888",
+        changeOrigin: true,
+        rewrite: (requestPath) => requestPath.replace(/^\/api\/v3(?=\/|$)/, "/api/tmdb"),
+      },
+      "^/v3(?=/|$)": {
+        target: "http://localhost:8888",
+        changeOrigin: true,
+        rewrite: (requestPath) => requestPath.replace(/^\/v3(?=\/|$)/, "/api/tmdb"),
+      },
+      "^/3(?=/|$)": {
+        target: "http://localhost:8888",
+        changeOrigin: true,
+        rewrite: (requestPath) => requestPath.replace(/^\/3(?=\/|$)/, "/api/tmdb"),
+      },
       "/api": {
         target: "http://localhost:8888",
         changeOrigin: true,

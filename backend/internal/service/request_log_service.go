@@ -188,11 +188,12 @@ func parseProxyMediaTarget(path string) (string, int) {
 		return "", 0
 	}
 
-	for _, prefix := range []string{"/api/v3", "/v3", "/3"} {
-		if strings.HasPrefix(tmdbPath, prefix) {
-			tmdbPath = strings.TrimPrefix(tmdbPath, prefix)
-			break
-		}
+	const tmdbProxyPrefix = "/api/tmdb"
+	if tmdbPath == tmdbProxyPrefix {
+		return "", 0
+	}
+	if strings.HasPrefix(tmdbPath, tmdbProxyPrefix+"/") {
+		tmdbPath = strings.TrimPrefix(tmdbPath, tmdbProxyPrefix)
 	}
 
 	parts := strings.Split(strings.Trim(tmdbPath, "/"), "/")
