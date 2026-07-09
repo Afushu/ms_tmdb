@@ -234,7 +234,7 @@ export function isAccessDetail(detail: RequestLogDetail): detail is AdminProxyAc
 
 export function detailEndpointPath(detail: RequestLogDetail) {
   if (isAccessDetail(detail)) {
-    return accessPath(detail.request_uri);
+    return detail.path || accessPath(detail.request_uri);
   }
   return detail.path || "-";
 }
@@ -247,7 +247,7 @@ export function detailEndpointDisplay(detail: RequestLogDetail) {
 
 export function detailEndpointQuery(detail: RequestLogDetail) {
   if (isAccessDetail(detail)) {
-    return accessQuery(detail.request_uri);
+    return detail.query ? formatQueryForDisplay(detail.query, 96) : accessQuery(detail.request_uri);
   }
   return upstreamQuery(detail.url);
 }

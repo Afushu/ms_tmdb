@@ -71,6 +71,38 @@ type homeMediaRow struct {
 	CreatedAt     time.Time
 }
 
+type hotMediaLogRecord struct {
+	Deleted    bool
+	StatusCode int
+	CreatedAt  time.Time
+	MediaType  string
+	TmdbID     int
+	Path       string
+}
+
+type hotMediaKey struct {
+	MediaType string
+	TmdbID    int
+}
+
+func aggregateValidHotMediaTargets(records []hotMediaLogRecord, now time.Time) map[hotMediaKey]int64 {
+	counts := make(map[hotMediaKey]int64)
+	cutoff := now.AddDate(0, 0, -30)
+	for _, record := range records {
+		if record.Deleted || record.StatusCode < 200 || record.StatusCode >= 400 || record.CreatedAt.Before(cutoff) {
+			continue
+		}
+		if record.MediaType != "movie" && record.MediaType != "tv" {
+			continue
+		}
+		if record.TmdbID == 0 {
+			continue
+		}
+		counts[hotMediaKey{MediaType: record.MediaType, TmdbID: record.TmdbID}]++
+	}
+	return counts
+}
+
 // queryLatestHomeMedia 只读取本地库中最新入库的电影和剧集，不触发 TMDB popular 回源。
 func (l *GetHomeDashboardLogic) queryLatestHomeMedia(limit int) ([]types.AdminHomeMediaItem, error) {
 	var rows []homeMediaRow
@@ -163,9 +195,9 @@ LIMIT ?
 // queryHotHomeMedia 从近 30 天代理访问日志中按媒体目标聚合访问次数，最终只返回已入库内容。
 func (l *GetHomeDashboardLogic) queryHotHomeMedia(limit int) ([]types.AdminHomeMediaItem, error) {
 	var rows []homeMediaRow
-	if err := l.svcCtx.DB.WithContext(l.ctx).Raw(`
-WITH hit_sources AS (
-  SELECT media_type, tmdb_id
+	const query = `
+WITH hit_counts AS (
+  SELECT media_type, tmdb_id, COUNT(*)::bigint AS visit_count
   FROM proxy_access_logs
   WHERE deleted_at IS NULL
     AND status_code >= 200
@@ -173,26 +205,6 @@ WITH hit_sources AS (
     AND created_at >= NOW() - INTERVAL '30 days'
     AND media_type IN ('movie', 'tv')
     AND tmdb_id <> 0
-  UNION ALL
-  SELECT
-    regexp_replace(path, '^/(api/v3|v3|3)/(movie|tv)/(-[0-9]+|[0-9]+).*$','\2') AS media_type,
-    regexp_replace(path, '^/(api/v3|v3|3)/(movie|tv)/(-[0-9]+|[0-9]+).*$','\3')::int AS tmdb_id
-  FROM proxy_access_logs
-  WHERE deleted_at IS NULL
-    AND status_code >= 200
-    AND status_code < 400
-    AND created_at >= NOW() - INTERVAL '30 days'
-    AND (
-      media_type IS NULL
-      OR media_type NOT IN ('movie', 'tv')
-      OR tmdb_id IS NULL
-      OR tmdb_id = 0
-    )
-    AND path ~ '^/(api/v3|v3|3)/(movie|tv)/(-[0-9]+|[0-9]+)($|/.*$)'
-),
-hit_counts AS (
-  SELECT media_type, tmdb_id, COUNT(*)::bigint AS visit_count
-  FROM hit_sources
   GROUP BY media_type, tmdb_id
 ),
 home_media AS (
@@ -243,7 +255,9 @@ SELECT
 FROM home_media
 ORDER BY visit_count DESC, created_at DESC, tmdb_id DESC
 LIMIT ?
-`, limit).Scan(&rows).Error; err != nil {
+`
+	// 历史缺少 Media_Target 的访问日志不计入热门访问次数，这是需求 6.2/6.4 的预期兼容策略；禁止恢复 path 正则回退。
+	if err := l.svcCtx.DB.WithContext(l.ctx).Raw(query, limit).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 	return convertHomeMediaRows(rows), nil

@@ -7,7 +7,7 @@ import (
 	"github.com/zeromicro/go-zero/rest/router"
 )
 
-// TmdbProxyRouter 在 go-zero 路由匹配前接管 /api/tmdb，避免固定深度兜底路由遗漏路径。
+// TmdbProxyRouter 在 go-zero 路由匹配前接管 TMDB 代理入口，避免固定深度兜底路由遗漏路径。
 type TmdbProxyRouter struct {
 	delegate httpx.Router
 	proxy    http.Handler

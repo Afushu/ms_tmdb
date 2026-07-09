@@ -1,12 +1,14 @@
 # MS-TMDB API 参考文档（当前实现）
 
-更新时间：2026-02-24
+更新时间：2026-07-09
 
 ## 基本信息
 
 - 开发环境地址：`http://localhost:8888`
 - Docker Compose 地址：`http://localhost:8080`
-- TMDB 代理前缀：`/api/v3`
+- TMDB 代理前缀（后端原生兼容）：
+  - 推荐：`/api/v3`
+  - 兼容：`/api/tmdb`、`/v3`、`/3`
 - 管理接口前缀：`/api/admin`
 - 响应格式：`application/json`
 
@@ -14,9 +16,10 @@
 
 1. 客户端无需传 `api_key`，服务端会自动附加 TMDB Key。
 2. 常用查询参数（如 `language`、`page`、`region`、`append_to_response`）会按接口定义透传。
-3. 实际可用路由以 `backend/api/tmdb.api` 为准。
+3. TMDB 代理由后端统一入口处理，以下前缀等价：`/api/v3`、`/api/tmdb`、`/v3`、`/3`。
+4. 管理接口以 `backend/api/tmdb.api` 为准；TMDB 代理路径不再写入该文件。
 
-## 一、TMDB 代理接口（`/api/v3`）
+## 一、TMDB 代理接口（`/api/v3`，兼容 `/api/tmdb`、`/v3`、`/3`）
 
 ### 1.1 带本地读穿缓存的详情接口
 
@@ -161,6 +164,8 @@ curl -X POST "http://localhost:8888/api/admin/tv/279446/season/1/local?language=
 
 接口新增或变更后，优先同步：
 
-1. `backend/api/tmdb.api`
-2. `docs/api-reference.md`
-3. `README.md`（仅保留面向使用者的最小说明）
+1. 管理接口：`backend/api/tmdb.api`
+2. TMDB 代理入口前缀：`backend/pkg/tmdbpath`
+3. TMDB 代理路由/分发：`backend/internal/middleware/tmdb_proxy_*.go`
+4. `docs/api-reference.md`
+5. `README.md`（仅保留面向使用者的最小说明）

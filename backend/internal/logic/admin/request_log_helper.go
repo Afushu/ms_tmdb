@@ -6,6 +6,7 @@ import (
 
 	"ms_tmdb/internal/model"
 	"ms_tmdb/internal/types"
+	"ms_tmdb/pkg/tmdbpath"
 
 	"gorm.io/gorm"
 )
@@ -64,7 +65,7 @@ func proxyAccessLogItem(record model.ProxyAccessLog) types.AdminProxyAccessLogIt
 		Id:                    int64(record.ID),
 		RequestId:             record.RequestID,
 		Method:                record.Method,
-		Path:                  record.Path,
+		Path:                  tmdbpath.CanonicalizeForDisplay(record.Path),
 		Query:                 record.Query,
 		RequestUri:            record.RequestURI,
 		ClientIp:              record.ClientIP,
@@ -85,7 +86,7 @@ func proxyAccessLogDetail(record model.ProxyAccessLog) *types.AdminProxyAccessLo
 		Id:                    int64(record.ID),
 		RequestId:             record.RequestID,
 		Method:                record.Method,
-		Path:                  record.Path,
+		Path:                  tmdbpath.CanonicalizeForDisplay(record.Path),
 		Query:                 record.Query,
 		RequestUri:            record.RequestURI,
 		ClientIp:              record.ClientIP,

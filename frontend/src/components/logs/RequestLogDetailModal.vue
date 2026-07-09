@@ -10,6 +10,7 @@ import {
   formatDateTime,
   formatDuration,
   formatStatusCode,
+  isAccessDetail,
 } from "@/utils/logFormatters";
 
 type RequestLogTab = "access" | "tmdb";
@@ -65,6 +66,14 @@ const emit = defineEmits<{
                 <strong>{{ detailEndpointSource(detail) }}</strong>
               </span>
               <span><small>请求正文</small><strong>{{ formatBytes(detail.request_body_bytes) }}</strong></span>
+              <span v-if="isAccessDetail(detail)">
+                <small>请求 ID</small>
+                <strong :title="detail.request_id">{{ detail.request_id || "-" }}</strong>
+              </span>
+              <span v-if="isAccessDetail(detail)">
+                <small>原始请求</small>
+                <strong :title="detail.request_uri">{{ detail.request_uri || "-" }}</strong>
+              </span>
             </div>
           </div>
 

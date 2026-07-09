@@ -3,3 +3,4 @@ backend/etc/tmdb.yaml
 
 # Local pnpm store/cache
 .pnpm-store/
+.kiro

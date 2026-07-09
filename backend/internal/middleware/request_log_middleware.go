@@ -38,7 +38,9 @@ func (m *RequestLogMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 			next(w, r)
 			return
 		}
-		if _, ok := resolveTmdbPath(r.URL.Path); !ok {
+		// 仍用 resolveTmdbPath 判断是否记日志；成功后的 stripped 路径作为 Canonical path 落库。
+		canonicalPath, ok := resolveTmdbPath(r.URL.Path)
+		if !ok {
 			next(w, r)
 			return
 		}
@@ -58,6 +60,7 @@ func (m *RequestLogMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 		m.writeProxyAccessLog(
 			r,
 			requestID,
+			canonicalPath,
 			requestBody,
 			recorder.BodySnapshot(),
 			recorder.StatusCode(),
@@ -108,6 +111,7 @@ func (m *RequestLogMiddleware) captureRequestBody(r *http.Request) service.BodyS
 func (m *RequestLogMiddleware) writeProxyAccessLog(
 	r *http.Request,
 	requestID string,
+	canonicalPath string,
 	requestBody service.BodySnapshot,
 	responseBody service.BodySnapshot,
 	statusCode int,
@@ -118,6 +122,7 @@ func (m *RequestLogMiddleware) writeProxyAccessLog(
 	}
 
 	query := sanitizeRawQuery(r.URL.RawQuery)
+	// RequestURI 保留原始入口 path + 脱敏 query，便于追溯不同兼容入口。
 	requestURI := r.URL.Path
 	if query != "" {
 		requestURI += "?" + query
@@ -127,7 +132,8 @@ func (m *RequestLogMiddleware) writeProxyAccessLog(
 		RequestID: requestID,
 		Method:    r.Method,
 
-		Path:       r.URL.Path,
+		// Path 使用 Resolve 成功后的 stripped Canonical 路径（仅前缀无后缀时为空串）。
+		Path:       canonicalPath,
 		Query:      query,
 		RequestURI: requestURI,
 		ClientIP:   clientIP(r),

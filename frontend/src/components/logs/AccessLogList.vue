@@ -38,7 +38,7 @@ const emit = defineEmits<{
       <div class="logs-main">
         <div class="logs-path-line">
           <span class="logs-method">{{ item.method }}</span>
-          <code :title="accessPath(item.request_uri)">{{ accessPath(item.request_uri) }}</code>
+          <code :title="item.request_uri || item.path">{{ item.path || accessPath(item.request_uri) }}</code>
         </div>
         <p v-if="item.error_message" class="logs-error-line" :title="item.error_message">
           {{ trimMiddle(item.error_message, 120) }}

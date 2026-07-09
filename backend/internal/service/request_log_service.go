@@ -2,12 +2,12 @@ package service
 
 import (
 	"context"
-	"strconv"
 	"strings"
 	"time"
 
 	"ms_tmdb/config"
 	"ms_tmdb/internal/model"
+	"ms_tmdb/pkg/tmdbpath"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"gorm.io/gorm"
@@ -150,13 +150,21 @@ func CaptureBody(raw []byte, limit int) BodySnapshot {
 }
 
 // WriteProxyAccess 写入外部访问日志。
+// path 落库为 Canonical（由中间件传入）；media_type/tmdb_id 经 tmdbpath.ParseMediaTarget 解析。
 func (s *RequestLogService) WriteProxyAccess(ctx context.Context, entry ProxyAccessEntry) error {
 	if s == nil || s.db == nil {
 		return nil
 	}
 
-	mediaType, tmdbID := parseProxyMediaTarget(entry.Path)
-	return s.db.WithContext(contextOrBackground(ctx)).Create(&model.ProxyAccessLog{
+	return s.db.WithContext(contextOrBackground(ctx)).Create(buildProxyAccessLog(entry)).Error
+}
+
+// buildProxyAccessLog 将访问入口载荷组装为落库模型。
+// Path 已是 Canonical 时 ParseMediaTarget 同样成立；若仍带入口前缀也能正确剥离后解析。
+// request_uri / query / request_id 原样保留，用于追溯原始入口。
+func buildProxyAccessLog(entry ProxyAccessEntry) *model.ProxyAccessLog {
+	mediaType, tmdbID := tmdbpath.ParseMediaTarget(entry.Path)
+	return &model.ProxyAccessLog{
 		RequestID: entry.RequestID,
 		Method:    entry.Method,
 
@@ -179,38 +187,7 @@ func (s *RequestLogService) WriteProxyAccess(ctx context.Context, entry ProxyAcc
 		ResponseBody:          entry.ResponseBody.Text,
 		ResponseBodyBytes:     entry.ResponseBody.Bytes,
 		ResponseBodyTruncated: entry.ResponseBody.Truncated,
-	}).Error
-}
-
-func parseProxyMediaTarget(path string) (string, int) {
-	tmdbPath := strings.TrimSpace(path)
-	if tmdbPath == "" {
-		return "", 0
 	}
-
-	const tmdbProxyPrefix = "/api/tmdb"
-	if tmdbPath == tmdbProxyPrefix {
-		return "", 0
-	}
-	if strings.HasPrefix(tmdbPath, tmdbProxyPrefix+"/") {
-		tmdbPath = strings.TrimPrefix(tmdbPath, tmdbProxyPrefix)
-	}
-
-	parts := strings.Split(strings.Trim(tmdbPath, "/"), "/")
-	if len(parts) < 2 {
-		return "", 0
-	}
-
-	mediaType := parts[0]
-	if mediaType != "movie" && mediaType != "tv" {
-		return "", 0
-	}
-
-	tmdbID, err := strconv.Atoi(parts[1])
-	if err != nil || tmdbID == 0 {
-		return "", 0
-	}
-	return mediaType, tmdbID
 }
 
 // WriteTmdbRequest 写入真实 TMDB 上游请求日志。

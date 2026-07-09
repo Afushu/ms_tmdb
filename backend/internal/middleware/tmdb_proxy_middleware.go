@@ -11,8 +11,8 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-// TmdbProxyMiddleware TMDB API 代理中间件
-// 后端内部仅接管 /api/tmdb，外部兼容路径由反向代理改写。
+// TmdbProxyMiddleware TMDB API 代理中间件。
+// 原生兼容 /api/tmdb、/api/v3、/v3、/3 入口，统一剥离前缀后走 dispatcher。
 type TmdbProxyMiddleware struct {
 	Client       *tmdbclient.Client
 	ProxyService *proxy.ProxyService
@@ -43,7 +43,7 @@ func (m *TmdbProxyMiddleware) Proxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 提取内部代理前缀后的 TMDB 路径。
+	// 剥离兼容入口前缀后的 TMDB 路径。
 	tmdbPath, ok := resolveTmdbPath(r.URL.Path)
 	if !ok {
 		writeProxyError(w, http.StatusNotFound, "TMDB 代理路径不存在")

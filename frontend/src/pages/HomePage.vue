@@ -343,9 +343,9 @@ onBeforeUnmount(() => {
             <p class="home-media-meta">
               <span class="home-media-stat-group">
                 <span class="rating-badge">{{ ratingText(item) }}</span>
-                <span v-if="section.key === 'hot'" class="home-media-metric">{{ visitText(item) }}</span>
+                <span class="home-media-type">{{ mediaTypeLabel(item.media_type) }} {{ yearText(item.air_date) }}</span>
               </span>
-              <span>{{ mediaTypeLabel(item.media_type) }} {{ yearText(item.air_date) }}</span>
+              <span v-if="section.key === 'hot'" class="home-media-metric">{{ visitText(item) }}</span>
             </p>
             <p v-if="homeMediaViewMode === 'list'" class="home-media-overview">{{ overviewText(item) }}</p>
           </div>
