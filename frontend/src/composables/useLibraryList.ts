@@ -38,7 +38,8 @@ export function useLibraryList(options: UseLibraryListOptions = {}) {
   const items = ref<LibraryListItem[]>([]);
   const total = ref(0);
   const page = ref(normalizePage(route.query.page));
-  const pageSize = 20;
+  const pageSizeOptions = [10, 20, 50, 100];
+  const pageSize = ref(normalizePageSize(route.query.page_size));
   const initialLoading = computed(() => loading.value && !listLoaded.value);
 
   const deletingId = ref<number | null>(null);
@@ -69,10 +70,17 @@ export function useLibraryList(options: UseLibraryListOptions = {}) {
     return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
   }
 
+  function normalizePageSize(value: unknown): number {
+    const parsed = Number(readQueryString(value));
+    if (pageSizeOptions.includes(parsed)) return parsed;
+    return 20;
+  }
+
   function buildLibraryQuery(): LocationQueryRaw {
     const nextQuery: LocationQueryRaw = {};
     if (activeTab.value !== "movie") nextQuery.tab = activeTab.value;
     if (page.value > 1) nextQuery.page = String(page.value);
+    if (pageSize.value !== 20) nextQuery.page_size = String(pageSize.value);
     if (keyword.value) nextQuery.q = keyword.value;
     if (searchMode.value !== "contains") nextQuery.mode = searchMode.value;
     if (viewMode.value !== "grid") nextQuery.view = viewMode.value;
@@ -142,7 +150,7 @@ export function useLibraryList(options: UseLibraryListOptions = {}) {
     return {
       total: Number(payload.total ?? 0),
       page: Number(payload.page ?? 1),
-      page_size: Number(payload.page_size ?? pageSize),
+      page_size: Number(payload.page_size ?? pageSize.value),
       results: normalizeListResults(payload.results),
     };
   }
@@ -151,6 +159,7 @@ export function useLibraryList(options: UseLibraryListOptions = {}) {
     const requestSeq = ++loadReqSeq;
     const targetTab = activeTab.value;
     const targetPage = page.value;
+    const targetPageSize = pageSize.value;
     const targetKeyword = keyword.value;
     const targetSearchMode = searchMode.value;
     const hadData = listLoaded.value;
@@ -158,12 +167,10 @@ export function useLibraryList(options: UseLibraryListOptions = {}) {
     loadError.value = "";
     refreshError.value = "";
     try {
-      // 列表首载/刷新静默，失败由页面区域状态处理（写操作仍走默认 Toast）
-      const silent = { showErrorToast: false as const };
       const resp =
         targetTab === "movie"
-          ? await listMovies(targetPage, pageSize, targetKeyword, targetSearchMode, silent)
-          : await listTV(targetPage, pageSize, targetKeyword, targetSearchMode, silent);
+          ? await listMovies(targetPage, targetPageSize, targetKeyword, targetSearchMode)
+          : await listTV(targetPage, targetPageSize, targetKeyword, targetSearchMode);
       if (requestSeq !== loadReqSeq) {
         return;
       }
@@ -211,12 +218,19 @@ export function useLibraryList(options: UseLibraryListOptions = {}) {
   }
 
   function totalPages() {
-    return Math.ceil(total.value / pageSize) || 1;
+    return Math.ceil(total.value / pageSize.value) || 1;
   }
 
   function gotoPage(p: number) {
     if (p < 1 || p > totalPages()) return;
     page.value = p;
+  }
+
+  function changePageSize(nextPageSize: number) {
+    const normalized = normalizePageSize(String(nextPageSize));
+    if (normalized === pageSize.value) return;
+    pageSize.value = normalized;
+    page.value = 1;
   }
 
   function routeByItem(item: LibraryListItem) {
@@ -319,11 +333,16 @@ export function useLibraryList(options: UseLibraryListOptions = {}) {
       if (nextViewMode !== viewMode.value) {
         viewMode.value = nextViewMode;
       }
+
+      const nextPageSize = normalizePageSize(query.page_size);
+      if (nextPageSize !== pageSize.value) {
+        pageSize.value = nextPageSize;
+      }
     },
   );
 
-  watch([activeTab, page, keyword, searchMode], loadData);
-  watch([activeTab, page, keyword, searchMode, viewMode], syncLibraryQuery);
+  watch([activeTab, page, pageSize, keyword, searchMode], loadData);
+  watch([activeTab, page, pageSize, keyword, searchMode, viewMode], syncLibraryQuery);
   onMounted(loadData);
 
   return {
@@ -340,6 +359,7 @@ export function useLibraryList(options: UseLibraryListOptions = {}) {
     total,
     page,
     pageSize,
+    pageSizeOptions,
     initialLoading,
     deletingId,
     deleteModalVisible,
@@ -351,6 +371,7 @@ export function useLibraryList(options: UseLibraryListOptions = {}) {
     resetSearch,
     totalPages,
     gotoPage,
+    changePageSize,
     routeByItem,
     scheduleItemDetail,
     cancelItemDetail,

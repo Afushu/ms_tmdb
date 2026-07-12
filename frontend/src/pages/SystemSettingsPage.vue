@@ -14,13 +14,8 @@ import {
   type AdminAutoSyncMode,
 } from "@/api/admin";
 import { useToastNotice } from "@/composables/useToastNotice";
-import { resolveErrorMessage } from "@/utils/errors";
-
 const loading = ref(false);
 const settingsLoaded = ref(false);
-const loadError = ref("");
-const refreshError = ref("");
-const logsError = ref("");
 const appVersion = __APP_VERSION__;
 const initialLoading = computed(() => loading.value && !settingsLoaded.value);
 
@@ -127,33 +122,25 @@ function formatDuration(durationMs: number) {
 
 async function loadAutoSyncLogs() {
   logsLoading.value = true;
-  logsError.value = "";
 
   try {
-    // 辅助读取：静默失败，保留当前最近执行记录并展示局部重试
-    const resp = await getAutoSyncLogs({ page: 1, page_size: 1 }, { showErrorToast: false });
+    const resp = await getAutoSyncLogs({ page: 1, page_size: 1 });
     const data = resp.data;
     logsItems.value = Array.isArray(data.results) ? data.results : [];
-    logsError.value = "";
-  } catch (error) {
-    logsError.value = resolveErrorMessage(error, "最近执行记录读取失败");
+  } catch {
+    // 错误已由全局请求拦截器提示。
   } finally {
     logsLoading.value = false;
   }
 }
 
 async function loadSettings() {
-  const hadData = settingsLoaded.value;
   loading.value = true;
-  loadError.value = "";
-  refreshError.value = "";
 
   try {
-    // 设置首读/重读静默，失败由页面区域状态处理；保存仍走默认 Toast
-    const silent = { showErrorToast: false as const };
     const [proxyResp, autoSyncResp] = await Promise.all([
-      getProxySettings(silent),
-      getAutoSyncSettings(silent),
+      getProxySettings(),
+      getAutoSyncSettings(),
     ]);
     const proxyData = proxyResp.data;
     proxyEnabled.value = !!proxyData.enabled;
@@ -170,17 +157,8 @@ async function loadSettings() {
     syncStartDelaySecond.value = normalizeNumber(Number(syncData.start_delay_second), 0, 3600);
     syncRunning.value = !!syncData.running;
     settingsLoaded.value = true;
-    loadError.value = "";
-    refreshError.value = "";
-  } catch (error) {
-    const message = resolveErrorMessage(error, "请求失败，请重试");
-    if (hadData) {
-      refreshError.value = message;
-      loadError.value = "";
-    } else {
-      loadError.value = message;
-      refreshError.value = "";
-    }
+  } catch {
+    // 错误已由全局请求拦截器提示。
   } finally {
     loading.value = false;
   }
@@ -269,7 +247,7 @@ onMounted(reloadAll);
 </script>
 
 <template>
-  <section class="grid gap-4">
+  <section class="grid min-w-0 gap-4">
     <section class="settings-toolbar card">
       <div class="min-w-0">
         <p class="section-label">系统设置</p>
@@ -277,39 +255,18 @@ onMounted(reloadAll);
         <p class="mt-1 text-sm text-black/55">统一管理 TMDB 网络代理和库内定时同步任务。</p>
       </div>
 
-      <div class="library-toolbar-actions">
+      <div class="flex items-center gap-3">
         <span class="badge">{{ taskRunStatusText }}</span>
-        <button class="btn-soft disabled:opacity-60" :disabled="settingsBusy" @click="reloadAll">
+        <button class="btn-soft-xs disabled:opacity-60" :disabled="settingsBusy" @click="reloadAll">
           {{ loading || logsLoading ? "读取中..." : "重新读取" }}
         </button>
       </div>
     </section>
 
-    <div
-      v-if="refreshError && !loadError"
-      class="logs-refresh-error"
-      role="status"
-      aria-live="polite"
-    >
-      <span>刷新失败：{{ refreshError }}</span>
-      <button type="button" class="btn-soft-xs" :disabled="settingsBusy" @click="reloadAll">重试</button>
-    </div>
-
-    <div
-      v-if="logsError"
-      class="logs-refresh-error"
-      role="status"
-      aria-live="polite"
-    >
-      <span>{{ logsError }}</span>
-      <button type="button" class="btn-soft-xs" :disabled="logsLoading" @click="loadAutoSyncLogs">重试</button>
-    </div>
-
     <LoadState
+      class="grid min-w-0 gap-4"
       :loading="initialLoading"
-      :error="loadError"
       loading-text="系统设置加载中..."
-      @retry="reloadAll"
     >
       <section class="settings-summary-grid">
         <article class="settings-summary-card">

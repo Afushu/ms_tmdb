@@ -133,8 +133,7 @@ async function loadData() {
   loadError.value = "";
   refreshError.value = "";
   try {
-    // 首屏加载静默，失败由页面 LoadState/区域恢复处理
-    const resp = await getHomeDashboard(homeDashboardLimit.value, { showErrorToast: false });
+    const resp = await getHomeDashboard(homeDashboardLimit.value);
     latestMedia.value = resp.data?.latest ?? [];
     hotMedia.value = resp.data?.hot ?? [];
     dashboardLoaded.value = true;
@@ -355,9 +354,7 @@ onBeforeUnmount(() => {
     <LoadState
       class="mt-4"
       :loading="initialLoading"
-      :error="loadError"
       loading-text="看板加载中..."
-      @retry="loadData"
     >
       <section
         v-for="section in homeMediaSections"

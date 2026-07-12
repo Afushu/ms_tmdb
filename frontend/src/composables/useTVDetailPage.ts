@@ -1284,8 +1284,7 @@ export function useTVDetailPage() {
     resetRemoteDiffState();
     resetCreditsState();
     try {
-      // 详情首载/刷新静默，失败由页面区域状态处理
-      const resp = await getTVDetail(targetId, "zh-CN", "", { force, showErrorToast: false });
+      const resp = await getTVDetail(targetId, "zh-CN", "", { force });
       if (requestSeq !== loadReqSeq) {
         return;
       }

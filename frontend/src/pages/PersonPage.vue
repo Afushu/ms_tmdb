@@ -236,8 +236,7 @@ async function loadData() {
   refreshError.value = "";
   resetAuxState();
   try {
-    // 详情首载静默，失败由页面区域状态处理
-    const resp = await getPersonDetail(personId.value, "zh-CN", "", { showErrorToast: false });
+    const resp = await getPersonDetail(personId.value, "zh-CN", "");
     if (requestSeq !== detailReqSeq) {
       return;
     }
@@ -286,9 +285,7 @@ onBeforeUnmount(() => {
     v-if="!detail"
     class="card"
     :loading="loading"
-    :error="loadError"
     loading-text="人物详情加载中..."
-    @retry="loadData"
   />
 
   <template v-else>

@@ -352,36 +352,53 @@ select.field-control option:checked {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: 80px;
+  padding-top: 72px;
   pointer-events: none;
 }
 
+/* 与页面内 ToastNotice 同系：浅色实底卡片，短消息按内容收缩 */
 .global-toast {
   pointer-events: auto;
-  display: flex;
-  width: min(400px, calc(100vw - 32px));
+  display: inline-flex;
+  max-width: min(320px, calc(100vw - 32px));
+  width: max-content;
   align-items: center;
   gap: 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border-muted);
-  background: #fff;
-  padding: 14px 16px;
-  color: #111827;
+  border: 1px solid #e4e7ec;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 12px 14px;
+  color: #1f2937;
   box-shadow:
-    0 8px 18px rgba(15, 23, 42, 0.1),
-    0 18px 42px rgba(15, 23, 42, 0.16);
+    0 8px 18px rgba(15, 23, 42, 0.08),
+    0 18px 42px rgba(15, 23, 42, 0.1);
+}
+
+.global-toast-error {
+  border-color: #fecdca;
+  background: #fffbfa;
+}
+
+.global-toast-success {
+  border-color: #abefc6;
+  background: #f6fef9;
+}
+
+.global-toast-info {
+  border-color: #e4e7ec;
+  background: #ffffff;
 }
 
 .global-toast-icon {
   position: relative;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   flex: 0 0 auto;
   border-radius: 9999px;
 }
 
 .global-toast-error .global-toast-icon {
-  background: #ef4444;
+  background: #f04438;
 }
 
 .global-toast-success .global-toast-icon {
@@ -395,10 +412,10 @@ select.field-control option:checked {
 .global-toast-error .global-toast-icon::before {
   content: "";
   position: absolute;
-  top: 4px;
-  left: 8px;
+  top: 3px;
+  left: 7px;
   width: 4px;
-  height: 8px;
+  height: 7px;
   border-radius: 2px;
   background: #fff;
 }
@@ -406,8 +423,8 @@ select.field-control option:checked {
 .global-toast-error .global-toast-icon::after {
   content: "";
   position: absolute;
-  bottom: 4px;
-  left: 8px;
+  bottom: 3px;
+  left: 7px;
   width: 4px;
   height: 4px;
   border-radius: 9999px;
@@ -417,8 +434,8 @@ select.field-control option:checked {
 .global-toast-success .global-toast-icon::before {
   content: "";
   position: absolute;
-  top: 4px;
-  left: 6px;
+  top: 3px;
+  left: 5px;
   width: 5px;
   height: 8px;
   border-right: 2px solid #fff;
@@ -429,8 +446,8 @@ select.field-control option:checked {
 .global-toast-info .global-toast-icon::before {
   content: "";
   position: absolute;
-  top: 8px;
-  left: 8px;
+  top: 7px;
+  left: 7px;
   width: 4px;
   height: 6px;
   border-radius: 9999px;
@@ -440,8 +457,8 @@ select.field-control option:checked {
 .global-toast-info .global-toast-icon::after {
   content: "";
   position: absolute;
-  top: 4px;
-  left: 8px;
+  top: 3px;
+  left: 7px;
   width: 4px;
   height: 4px;
   border-radius: 9999px;
@@ -450,10 +467,23 @@ select.field-control option:checked {
 
 .global-toast-text {
   min-width: 0;
-  flex: 1;
+  max-width: 15rem;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 14px;
   font-weight: 500;
   line-height: 1.45;
+  color: #1f2937;
+}
+
+.global-toast-error .global-toast-text {
+  color: #b42318;
+}
+
+.global-toast-success .global-toast-text {
+  color: #027a48;
 }
 
 .global-toast-close {
@@ -493,12 +523,15 @@ select.field-control option:checked {
 
 .global-toast-fade-enter-active,
 .global-toast-fade-leave-active {
-  transition: opacity 0.2s ease;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
 }
 
 .global-toast-fade-enter-from,
 .global-toast-fade-leave-to {
   opacity: 0;
+  transform: translateY(-6px);
 }
 
 .content-auto {

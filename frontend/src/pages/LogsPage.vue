@@ -75,7 +75,7 @@ const autoSyncError = ref("");
 const autoSyncRefreshError = ref("");
 const autoSyncStatus = ref("");
 const autoSyncPage = ref(1);
-const autoSyncPageSize = ref(10);
+const autoSyncPageSize = ref(20);
 const autoSyncTotal = ref(0);
 const autoSyncItems = ref<AdminAutoSyncLogItem[]>([]);
 let autoSyncRequestSeq = 0;
@@ -140,9 +140,9 @@ const currentPageSize = computed(() => {
   return autoSyncPageSize.value;
 });
 const currentTotalPages = computed(() => totalPages(currentTotal.value, currentPageSize.value));
-const accessTotalText = computed(() => formatRequestLogTotal(accessTotal.value));
-const tmdbTotalText = computed(() => formatRequestLogTotal(tmdbTotal.value));
-const autoSyncTotalText = computed(() => formatRequestLogTotal(autoSyncTotal.value));
+const accessTotalText = computed(() => (accessLoaded.value ? formatRequestLogTotal(accessTotal.value) : "—"));
+const tmdbTotalText = computed(() => (tmdbLoaded.value ? formatRequestLogTotal(tmdbTotal.value) : "—"));
+const autoSyncTotalText = computed(() => (autoSyncLoaded.value ? formatRequestLogTotal(autoSyncTotal.value) : "—"));
 const activeDetail = computed<RequestLogDetail | null>(() => (detailType.value === "access" ? accessDetail.value : tmdbDetail.value));
 const currentKeyword = computed(() => {
   if (activeTab.value === "access") return accessKeyword.value.trim();
@@ -260,16 +260,12 @@ async function loadAccessLogs(page = accessPage.value) {
   accessRefreshError.value = "";
   try {
     const safePage = Math.max(1, Math.trunc(page));
-    // 首载/刷新配合 LoadState 区域失败态，静默全局 Toast
-    const resp = await getProxyAccessLogs(
-      {
-        page: safePage,
-        page_size: accessPageSize.value,
-        status: accessStatus.value || undefined,
-        keyword: accessKeyword.value.trim() || undefined,
-      },
-      { showErrorToast: false },
-    );
+    const resp = await getProxyAccessLogs({
+      page: safePage,
+      page_size: accessPageSize.value,
+      status: accessStatus.value || undefined,
+      keyword: accessKeyword.value.trim() || undefined,
+    });
     if (requestSeq !== accessRequestSeq) {
       return;
     }
@@ -309,16 +305,12 @@ async function loadTmdbLogs(page = tmdbPage.value) {
   tmdbRefreshError.value = "";
   try {
     const safePage = Math.max(1, Math.trunc(page));
-    // 首载/刷新配合 LoadState 区域失败态，静默全局 Toast
-    const resp = await getTmdbRequestLogs(
-      {
-        page: safePage,
-        page_size: tmdbPageSize.value,
-        status: tmdbStatus.value || undefined,
-        keyword: tmdbKeyword.value.trim() || undefined,
-      },
-      { showErrorToast: false },
-    );
+    const resp = await getTmdbRequestLogs({
+      page: safePage,
+      page_size: tmdbPageSize.value,
+      status: tmdbStatus.value || undefined,
+      keyword: tmdbKeyword.value.trim() || undefined,
+    });
     if (requestSeq !== tmdbRequestSeq) {
       return;
     }
@@ -357,15 +349,11 @@ async function loadAutoSyncLogs(page = autoSyncPage.value) {
   autoSyncRefreshError.value = "";
   try {
     const safePage = Math.max(1, Math.trunc(page));
-    // 首载/刷新配合 LoadState 区域失败态，静默全局 Toast
-    const resp = await getAutoSyncLogs(
-      {
-        page: safePage,
-        page_size: autoSyncPageSize.value,
-        status: autoSyncStatus.value || undefined,
-      },
-      { showErrorToast: false },
-    );
+    const resp = await getAutoSyncLogs({
+      page: safePage,
+      page_size: autoSyncPageSize.value,
+      status: autoSyncStatus.value || undefined,
+    });
     if (requestSeq !== autoSyncRequestSeq) {
       return;
     }
@@ -739,7 +727,7 @@ watch(
 );
 
 onMounted(() => {
-  void loadCurrentLogs(1);
+  void Promise.all([loadAccessLogs(1), loadTmdbLogs(1), loadAutoSyncLogs(1)]);
 });
 </script>
 
@@ -787,11 +775,9 @@ onMounted(() => {
 
       <LoadState
         :loading="currentInitialLoading"
-        :error="currentPrimaryError"
         :empty="currentListEmpty && !currentPrimaryError && !currentListLoading"
         :empty-text="currentEmptyText"
         loading-text="日志加载中..."
-        @retry="refreshCurrentLogs"
       >
         <AccessLogList
           v-if="activeTab === 'access'"

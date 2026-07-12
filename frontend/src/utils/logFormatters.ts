@@ -175,6 +175,18 @@ export function accessPath(value: string) {
   return splitPathAndQuery(value).path;
 }
 
+export function formatRequestUriForDisplay(value: string) {
+  const text = (value ?? "").trim();
+  if (!text) {
+    return "-";
+  }
+  try {
+    return decodeURIComponent(text);
+  } catch {
+    return text;
+  }
+}
+
 export function formatQueryForDisplay(query: string, max: number) {
   const text = (query ?? "").trim().replace(/^\?/, "");
   if (!text) {
@@ -186,7 +198,7 @@ export function formatQueryForDisplay(query: string, max: number) {
       params.delete(key);
     }
   }
-  const safeQuery = params.toString();
+  const safeQuery = [...params.entries()].map(([key, value]) => `${key}=${value}`).join("&");
   return safeQuery ? `?${trimMiddle(safeQuery, max)}` : "无查询参数";
 }
 

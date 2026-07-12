@@ -65,7 +65,7 @@ http.interceptors.response.use(
     const status: number | undefined = error?.response?.status;
     const msg = backendMessage(data) || friendlyMessage(status, error?.message || "");
 
-    // 默认展示全局 Toast；显式 showErrorToast: false 时静默，由页面构建区域失败态
+    // 默认展示全局 Toast；仅预取或辅助读取可显式静默。
     if (error?.config?.showErrorToast !== false) {
       showGlobalToast(msg, "error");
     }

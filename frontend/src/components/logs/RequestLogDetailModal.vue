@@ -10,6 +10,7 @@ import {
   formatBytes,
   formatDateTime,
   formatDuration,
+  formatRequestUriForDisplay,
   formatStatusCode,
   isAccessDetail,
 } from "@/utils/logFormatters";
@@ -75,7 +76,7 @@ const emit = defineEmits<{
           </span>
           <span v-if="isAccessDetail(detail)">
             <small>原始请求</small>
-            <strong :title="detail.request_uri">{{ detail.request_uri || "-" }}</strong>
+            <strong :title="formatRequestUriForDisplay(detail.request_uri)">{{ formatRequestUriForDisplay(detail.request_uri) }}</strong>
           </span>
         </div>
       </div>

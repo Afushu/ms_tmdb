@@ -6,7 +6,6 @@ withDefaults(
     empty?: boolean;
     loadingText?: string;
     emptyText?: string;
-    errorText?: string;
   }>(),
   {
     loading: false,
@@ -14,27 +13,13 @@ withDefaults(
     empty: false,
     loadingText: "加载中...",
     emptyText: "暂无数据",
-    errorText: "",
   },
-);
-
-const emit = defineEmits<{
-  retry: [];
-}>();
-</script>
+);</script>
 
 <template>
   <div class="load-state">
     <div v-if="loading" class="load-state-status" role="status" aria-live="polite">
       {{ loadingText }}
-    </div>
-    <div v-else-if="error" class="load-state-status load-state-error" role="alert">
-      <p class="load-state-message">{{ errorText || error }}</p>
-      <div class="load-state-actions">
-        <slot name="actions">
-          <button type="button" class="btn-soft" @click="emit('retry')">重试</button>
-        </slot>
-      </div>
     </div>
     <div v-else-if="empty" class="load-state-status" role="status">
       {{ emptyText }}
@@ -47,19 +32,5 @@ const emit = defineEmits<{
 .load-state-status {
   @apply px-4 py-8 text-center text-sm;
   color: rgba(203, 213, 225, 0.68);
-}
-
-.load-state-error {
-  @apply flex flex-col items-center gap-3;
-}
-
-.load-state-message {
-  margin: 0;
-  max-width: 36rem;
-  color: rgba(252, 165, 165, 0.95);
-}
-
-.load-state-actions {
-  @apply flex items-center justify-center gap-2;
 }
 </style>

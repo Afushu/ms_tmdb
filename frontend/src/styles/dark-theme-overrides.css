@@ -444,11 +444,12 @@
 [data-theme="mslight"] .logs-path-line code,
 [data-theme="mslight"] .logs-detail-overview-main code,
 [data-theme="mslight"] .logs-detail-overview-meta strong,
-[data-theme="mslight"] .logs-source strong,
-[data-theme="mslight"] .poster-card p,
-[data-theme="mslight"] .search-item p {
-  color: #111827;
-}
+  [data-theme="mslight"] .logs-source strong,
+  [data-theme="mslight"] .library-list-title,
+  [data-theme="mslight"] .poster-card p,
+  [data-theme="mslight"] .search-item p {
+    color: #111827;
+  }
 
 [data-theme="mslight"] .settings-note,
 [data-theme="mslight"] .settings-toggle-row small,
@@ -463,14 +464,17 @@
 [data-theme="mslight"] .logs-time,
 [data-theme="mslight"] .logs-body-cell,
 [data-theme="mslight"] .logs-body-cell small,
-[data-theme="mslight"] .logs-source span,
-[data-theme="mslight"] .logs-empty,
-[data-theme="mslight"] .logs-detail-overview-meta small,
-[data-theme="mslight"] .poster-meta,
-[data-theme="mslight"] .library-list-summary,
-[data-theme="mslight"] .empty-state {
-  color: #667085;
-}
+  [data-theme="mslight"] .logs-source span,
+  [data-theme="mslight"] .logs-empty,
+  [data-theme="mslight"] .logs-detail-overview-meta small,
+  [data-theme="mslight"] .poster-meta,
+  [data-theme="mslight"] .library-list-summary,
+  [data-theme="mslight"] .library-list-subtitle,
+  [data-theme="mslight"] .library-list-status-muted,
+  [data-theme="mslight"] .library-list-date,
+  [data-theme="mslight"] .empty-state {
+    color: #667085;
+  }
 
 [data-theme="mslight"] .logs-path-line code,
 [data-theme="mslight"] .logs-detail-overview,
@@ -718,4 +722,48 @@
 [data-theme="mslight"] .settings-detail-modal .text-black\/60,
 [data-theme="mslight"] .settings-detail-modal .text-black\/70 {
   color: #667085;
+}
+
+/* 全局 Toast：浅色默认，深色主题单独适配 */
+[data-theme="msdark"] .global-toast {
+  border-color: rgba(208, 216, 228, 0.14);
+  background: #1d232b;
+  color: #edf2f7;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+}
+
+[data-theme="msdark"] .global-toast-error {
+  border-color: rgba(248, 113, 113, 0.28);
+  background: #261d22;
+}
+
+[data-theme="msdark"] .global-toast-success {
+  border-color: rgba(52, 211, 153, 0.26);
+  background: #1a2522;
+}
+
+[data-theme="msdark"] .global-toast-info {
+  border-color: rgba(148, 163, 184, 0.2);
+  background: #1d232b;
+}
+
+[data-theme="msdark"] .global-toast-text {
+  color: #edf2f7;
+}
+
+[data-theme="msdark"] .global-toast-error .global-toast-text {
+  color: #fca5a5;
+}
+
+[data-theme="msdark"] .global-toast-success .global-toast-text {
+  color: #6ee7b7;
+}
+
+[data-theme="msdark"] .global-toast-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="msdark"] .global-toast-close::before,
+[data-theme="msdark"] .global-toast-close::after {
+  background: rgba(237, 242, 247, 0.7);
 }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AdminProxyAccessLogItem } from "@/api/admin";
+import DataListShell from "@/components/common/DataListShell.vue";
 import {
   accessPath,
   bodyMeta,
@@ -18,20 +19,19 @@ defineProps<{
 const emit = defineEmits<{
   "open-detail": [item: AdminProxyAccessLogItem];
 }>();
+
+const columns = ["时间", "请求", "状态", "耗时", "正文", "来源", "操作"];
 </script>
 
 <template>
-  <div class="logs-list-shell">
-    <div class="logs-list-head logs-grid-access">
-      <span>时间</span>
-      <span>请求</span>
-      <span>状态</span>
-      <span>耗时</span>
-      <span>正文</span>
-      <span>来源</span>
-      <span>操作</span>
-    </div>
-
+  <DataListShell
+    grid-class="logs-grid-access"
+    :columns="columns"
+    :loading="loading"
+    :empty="!loading && items.length === 0"
+    empty-text="暂无外部访问日志"
+    loading-text="日志加载中..."
+  >
     <article v-for="item in items" :key="item.id" class="logs-row logs-grid-access">
       <time class="logs-time">{{ formatDateTime(item.created_at) }}</time>
 
@@ -63,10 +63,7 @@ const emit = defineEmits<{
         <span :title="item.user_agent">{{ item.user_agent || "-" }}</span>
       </div>
 
-      <button class="btn-soft-xs logs-action" type="button" @click="emit('open-detail', item)">查看详情</button>
+      <button class="btn-soft-xs logs-action" type="button" @click="emit('open-detail', item)">详情</button>
     </article>
-
-    <p v-if="!loading && items.length === 0" class="logs-empty">暂无外部访问日志</p>
-    <p v-if="loading" class="logs-empty">日志加载中...</p>
-  </div>
+  </DataListShell>
 </template>

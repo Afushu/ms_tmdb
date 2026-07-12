@@ -128,6 +128,14 @@
     left: 16px;
     width: auto;
   }
+
+  .global-toast-overlay {
+    padding: 60px 16px 0;
+  }
+
+  .global-toast {
+    max-width: min(300px, calc(100vw - 32px));
+  }
 }
 
 .line-clamp-1 {

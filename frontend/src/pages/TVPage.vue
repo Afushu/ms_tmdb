@@ -14,7 +14,6 @@ const TVSeasonManager = defineAsyncComponent(() => import("@/components/tv/TVSea
 const TVCastSection = defineAsyncComponent(() => import("@/components/tv/TVCastSection.vue"));
 const {
   loading,
-  error,
   refreshError,
   detail,
   castMembers,
@@ -124,9 +123,7 @@ watch(seasonLocalMessage, (message) => {
     v-if="!detail"
     class="card"
     :loading="loading"
-    :error="error"
     loading-text="剧集详情加载中..."
-    @retry="() => loadData({ force: true })"
   />
 
   <template v-else>

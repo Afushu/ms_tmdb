@@ -14,7 +14,6 @@ const MovieCastSection = defineAsyncComponent(() => import("@/components/movie/M
 
 const {
   loading,
-  loadError,
   refreshError,
   detail,
   castMembers,
@@ -82,9 +81,7 @@ watch(saveMessage, (message) => {
     v-if="!detail"
     class="card"
     :loading="loading"
-    :error="loadError"
     loading-text="电影详情加载中..."
-    @retry="() => loadData({ force: true })"
   />
 
   <template v-else>

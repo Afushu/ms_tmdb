@@ -187,9 +187,12 @@
   padding: 0;
 }
 
+/* 用 flex 铺满剩余高度，避免 header/tabs 边框让 calc(100vh - …) 多撑出纵向滚动条 */
 .admin-workspace {
+  display: flex;
   min-height: 100vh;
   min-width: 0;
+  flex-direction: column;
   margin-left: var(--sidebar-width);
   background: var(--bg-main);
   transition: margin-left 0.18s ease;
@@ -199,17 +202,15 @@
   margin-left: var(--sidebar-collapsed-width);
 }
 
-.admin-workspace-fixed {
-  display: flex;
-  height: 100vh;
-  min-height: 0;
-  flex-direction: column;
-  overflow: hidden;
+.admin-workspace > .admin-topbar,
+.admin-workspace > .admin-tabs {
+  flex: none;
 }
 
-.admin-workspace-fixed > .admin-topbar,
-.admin-workspace-fixed > .admin-tabs {
-  flex: none;
+.admin-workspace-fixed {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .admin-topbar {
@@ -577,13 +578,13 @@
 }
 
 .admin-content {
-  min-height: calc(100vh - var(--header-height) - var(--tabbar-height));
+  flex: 1 1 auto;
+  min-width: 0;
   padding-top: 0;
   padding-bottom: 24px;
 }
 
 .admin-content-fixed {
-  flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
   padding-bottom: 0;

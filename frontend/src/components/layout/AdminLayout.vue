@@ -51,7 +51,10 @@ const currentSection = computed(() =>
   currentMenu.value?.section ?? String(route.meta.section ?? (route.path === "/" ? "工作台" : "系统")),
 );
 const currentTitle = computed(() => String(route.meta.title ?? currentMenu.value?.title ?? "首页"));
-const isLogsPage = computed(() => route.path === "/logs");
+/* 日志页、本地库表格视图使用固定工作区；卡片视图保持整页自然滚动 */
+const isFixedWorkspacePage = computed(
+  () => route.path === "/logs" || (route.path === "/library" && route.query.view === "table"),
+);
 
 const { closeAllTabs, closeLeftTabs, closeOtherTabs, closeRightTabs, closeTab, openedTabs } = useAdminTabs({
   currentSection,
@@ -132,7 +135,7 @@ onBeforeUnmount(() => {
       @click="sidebarOpen = false"
     ></button>
 
-    <section class="admin-workspace" :class="{ 'admin-workspace-fixed': isLogsPage }">
+    <section class="admin-workspace" :class="{ 'admin-workspace-fixed': isFixedWorkspacePage }">
       <AdminTopbar
         v-model:search-query="topbarSearchQuery"
         :current-section="currentSection"
@@ -159,7 +162,7 @@ onBeforeUnmount(() => {
         id="admin-main"
         tabindex="-1"
         class="page-shell admin-content"
-        :class="{ 'admin-content-compact': preferences.compact, 'admin-content-fixed': isLogsPage }"
+        :class="{ 'admin-content-compact': preferences.compact, 'admin-content-fixed': isFixedWorkspacePage }"
       >
         <section class="vben-page">
           <div class="vben-page-content">

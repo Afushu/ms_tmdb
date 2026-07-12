@@ -26,8 +26,7 @@ async function loadSettings() {
   loadError.value = "";
   refreshError.value = "";
   try {
-    // 首读静默；保存仍走默认 Toast 并恢复 saving 状态
-    const resp = await getProxySettings({ showErrorToast: false });
+    const resp = await getProxySettings();
     const data = resp.data;
     proxyURL.value = data.proxy_url ?? "";
     enabled.value = !!data.enabled;
@@ -85,9 +84,7 @@ onMounted(loadSettings);
     <LoadState
       class="mt-4"
       :loading="initialLoading"
-      :error="loadError"
       loading-text="代理设置加载中..."
-      @retry="loadSettings"
     >
       <label class="inline-flex items-center gap-2 text-sm">
         <input v-model="enabled" type="checkbox" class="check-control" />

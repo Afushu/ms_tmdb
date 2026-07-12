@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AdminTmdbRequestLogItem } from "@/api/admin";
+import DataListShell from "@/components/common/DataListShell.vue";
 import {
   bodyMeta,
   formatDateTime,
@@ -18,19 +19,19 @@ defineProps<{
 const emit = defineEmits<{
   "open-detail": [item: AdminTmdbRequestLogItem];
 }>();
+
+const columns = ["时间", "上游路径", "状态", "耗时", "响应正文", "操作"];
 </script>
 
 <template>
-  <div class="logs-list-shell">
-    <div class="logs-list-head logs-grid-tmdb">
-      <span>时间</span>
-      <span>上游路径</span>
-      <span>状态</span>
-      <span>耗时</span>
-      <span>响应正文</span>
-      <span>操作</span>
-    </div>
-
+  <DataListShell
+    grid-class="logs-grid-tmdb"
+    :columns="columns"
+    :loading="loading"
+    :empty="!loading && items.length === 0"
+    empty-text="暂无 TMDB 请求日志"
+    loading-text="日志加载中..."
+  >
     <article v-for="item in items" :key="item.id" class="logs-row logs-grid-tmdb">
       <time class="logs-time">{{ formatDateTime(item.created_at) }}</time>
 
@@ -57,10 +58,7 @@ const emit = defineEmits<{
         <span>{{ bodyMeta(item.response_body_bytes, item.response_body_truncated) }}</span>
       </div>
 
-      <button class="btn-soft-xs logs-action" type="button" @click="emit('open-detail', item)">查看详情</button>
+      <button class="btn-soft-xs logs-action" type="button" @click="emit('open-detail', item)">详情</button>
     </article>
-
-    <p v-if="!loading && items.length === 0" class="logs-empty">暂无 TMDB 请求日志</p>
-    <p v-if="loading" class="logs-empty">日志加载中...</p>
-  </div>
+  </DataListShell>
 </template>

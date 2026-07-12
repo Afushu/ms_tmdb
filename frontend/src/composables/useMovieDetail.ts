@@ -414,8 +414,7 @@ export function useMovieDetail() {
     resetRemoteDiffState();
     resetCreditsState();
     try {
-      // 详情首载/刷新静默，失败由页面区域状态处理
-      const resp = await getMovieDetail(movieId.value, "zh-CN", "", { force, showErrorToast: false });
+      const resp = await getMovieDetail(movieId.value, "zh-CN", "", { force });
       if (requestSeq !== loadReqSeq) {
         return;
       }

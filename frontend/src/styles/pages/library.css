@@ -200,12 +200,68 @@
   }
 }
 
+/* 卡片视图：整页自然滚动，不限高 */
+.library-page-natural {
+  min-width: 0;
+}
+
+/* 表格视图：顶部工具栏固定，下方结果区吃满剩余高度 */
+.library-page-shell {
+  display: grid;
+  height: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 1rem;
+  overflow: hidden;
+}
+
+.library-result-card {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.library-page-shell .library-list-summary,
+.library-page-shell .logs-refresh-error,
+.library-page-shell .settings-pagination-row {
+  flex: none;
+}
+
+.library-page-shell .load-state {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 仅表格列表在结果卡内纵向滚动 */
+.library-page-shell .library-data-list.logs-list-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 0.75rem;
+  overflow: auto;
+}
+
 .library-list-summary {
   @apply flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm;
   color: var(--text-muted);
   background: var(--surface);
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow-soft);
+}
+
+/* 表格结果卡内的汇总条更轻，避免双层卡片过重 */
+.library-result-card > .library-list-summary {
+  background: var(--surface-muted);
+  border-color: var(--border-muted);
+  box-shadow: none;
+}
+
+/* 表格模式仅保留右侧操作，数量文案交给底部分页 */
+.library-list-summary-table {
+  justify-content: flex-end;
 }
 
 .library-list-controls {
@@ -326,62 +382,92 @@
   background: rgba(153, 27, 27, 0.34);
 }
 
-.library-table-shell {
+/* 列表贴合内容区宽度；桌面固定高度下由 library-page-shell 接管纵向滚动 */
+.library-data-list.logs-list-shell {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 640px) {
+  .library-page-shell {
+    height: auto;
+    overflow: visible;
+  }
+
+  .library-result-card {
+    overflow: visible;
+  }
+
+  .library-page-shell .load-state,
+  .library-page-shell .library-data-list.logs-list-shell {
+    overflow: visible;
+  }
+}
+
+.library-data-list .logs-main,
+.library-data-list .logs-body-cell,
+.library-data-list .logs-source {
+  min-width: 0;
+}
+
+.library-data-list .logs-body-cell span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-list-title {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(241, 247, 255, 0.94);
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-list-subtitle {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(203, 213, 225, 0.58);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-list-date {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-list-status-muted {
+  color: rgba(203, 213, 225, 0.55);
+  font-size: 0.75rem;
 }
 
 .library-table-actions {
   flex-wrap: nowrap;
+  justify-content: flex-end;
 }
 
+/* 窄屏摘要卡中，操作区固定右下，图标按钮始终可点 */
 @media (max-width: 767px) {
-  .library-table-shell {
-    padding: 0;
+  .logs-row.logs-grid-library .library-table-actions {
+    grid-area: action;
+    justify-self: end;
+    align-self: center;
   }
 
-  .library-table .library-col-secondary {
-    display: none;
-  }
-
-  .library-table th.library-col-primary,
-  .library-table td.library-col-primary {
-    min-width: 0;
-    padding-left: 0.75rem;
-    padding-right: 0.5rem;
-  }
-
-  .library-table td.library-col-primary .font-medium {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .library-table th.library-col-actions,
-  .library-table td.library-col-actions {
-    width: 1%;
-    white-space: nowrap;
-    padding-left: 0.5rem;
-    padding-right: 0.75rem;
-  }
-
-  .library-table-actions {
-    justify-content: flex-end;
-  }
-
-  /* 窄屏始终展示操作按钮，不依赖 hover 才能发现 */
-  .library-table .table-action-btn {
+  .logs-row.logs-grid-library .table-action-btn {
     opacity: 1;
     pointer-events: auto;
-  }
-}
-
-@media (min-width: 768px) {
-  .library-table-shell {
-    padding: 0;
-  }
-
-  .library-table {
-    min-width: 40rem;
   }
 }

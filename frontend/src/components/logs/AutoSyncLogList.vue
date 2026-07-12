@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AdminAutoSyncLogItem } from "@/api/admin";
+import DataListShell from "@/components/common/DataListShell.vue";
 import {
   autoSyncStatusClass,
   formatAutoSyncStatus,
@@ -17,20 +18,19 @@ defineProps<{
 const emit = defineEmits<{
   "open-detail": [item: AdminAutoSyncLogItem];
 }>();
+
+const columns = ["时间", "策略", "状态", "耗时", "检查/同步/失败", "摘要", "操作"];
 </script>
 
 <template>
-  <div class="logs-list-shell">
-    <div class="logs-list-head logs-grid-auto-sync">
-      <span>时间</span>
-      <span>策略</span>
-      <span>状态</span>
-      <span>耗时</span>
-      <span>检查/同步/失败</span>
-      <span>摘要</span>
-      <span>操作</span>
-    </div>
-
+  <DataListShell
+    grid-class="logs-grid-auto-sync"
+    :columns="columns"
+    :loading="loading"
+    :empty="!loading && items.length === 0"
+    empty-text="暂无执行日志"
+    loading-text="日志加载中..."
+  >
     <article v-for="item in items" :key="item.id" class="logs-row logs-grid-auto-sync">
       <time class="logs-time">{{ formatDateTime(item.triggered_at) }}</time>
 
@@ -60,10 +60,7 @@ const emit = defineEmits<{
         <span>{{ formatDateTime(item.finished_at || item.created_at) }}</span>
       </div>
 
-      <button class="btn-soft-xs logs-action" type="button" @click="emit('open-detail', item)">查看详情</button>
+      <button class="btn-soft-xs logs-action" type="button" @click="emit('open-detail', item)">详情</button>
     </article>
-
-    <p v-if="!loading && items.length === 0" class="logs-empty">暂无执行日志</p>
-    <p v-if="loading" class="logs-empty">日志加载中...</p>
-  </div>
+  </DataListShell>
 </template>
