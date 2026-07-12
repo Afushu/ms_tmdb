@@ -60,7 +60,7 @@ const emit = defineEmits<{
         <span>{{ formatDateTime(item.finished_at || item.created_at) }}</span>
       </div>
 
-      <button class="btn-soft-xs logs-action" @click="emit('open-detail', item)">详情</button>
+      <button class="btn-soft-xs logs-action" type="button" @click="emit('open-detail', item)">查看详情</button>
     </article>
 
     <p v-if="!loading && items.length === 0" class="logs-empty">暂无执行日志</p>

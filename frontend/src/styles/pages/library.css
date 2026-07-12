@@ -325,3 +325,63 @@
 .table-action-btn-danger:hover {
   background: rgba(153, 27, 27, 0.34);
 }
+
+.library-table-shell {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.library-table-actions {
+  flex-wrap: nowrap;
+}
+
+@media (max-width: 767px) {
+  .library-table-shell {
+    padding: 0;
+  }
+
+  .library-table .library-col-secondary {
+    display: none;
+  }
+
+  .library-table th.library-col-primary,
+  .library-table td.library-col-primary {
+    min-width: 0;
+    padding-left: 0.75rem;
+    padding-right: 0.5rem;
+  }
+
+  .library-table td.library-col-primary .font-medium {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .library-table th.library-col-actions,
+  .library-table td.library-col-actions {
+    width: 1%;
+    white-space: nowrap;
+    padding-left: 0.5rem;
+    padding-right: 0.75rem;
+  }
+
+  .library-table-actions {
+    justify-content: flex-end;
+  }
+
+  /* 窄屏始终展示操作按钮，不依赖 hover 才能发现 */
+  .library-table .table-action-btn {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (min-width: 768px) {
+  .library-table-shell {
+    padding: 0;
+  }
+
+  .library-table {
+    min-width: 40rem;
+  }
+}

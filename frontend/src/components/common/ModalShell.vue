@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { computed } from "vue";
+import BaseDialog from "@/components/common/BaseDialog.vue";
+
 const props = withDefaults(
   defineProps<{
     visible: boolean;
@@ -19,52 +22,62 @@ const props = withDefaults(
 const emit = defineEmits<{
   close: [];
 }>();
+
+const panelClass = computed(() =>
+  props.variant === "vben" ? "vben-modal-shell" : "panel-glass",
+);
+
+const headerClass = computed(() =>
+  props.variant === "vben"
+    ? "vben-modal-header"
+    : "sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-white/10 bg-black/35 px-4 py-3 backdrop-blur sm:px-6",
+);
+
+const resolvedFooterClass = computed(() => {
+  if (props.variant === "vben") {
+    return ["vben-modal-footer", props.footerClass].filter(Boolean).join(" ");
+  }
+  return props.footerClass;
+});
+
+const titleClass = computed(() =>
+  props.variant === "vben" ? "vben-modal-title" : "text-sm font-semibold",
+);
+
+const closeButtonClass = computed(() =>
+  props.variant === "vben" ? "vben-modal-close" : "btn-soft px-3 py-1.5 text-xs disabled:opacity-60",
+);
+
+const closeButtonText = computed(() => (props.variant === "vben" ? "×" : "关闭"));
 </script>
 
 <template>
-  <div
-    v-if="visible"
-    class="fixed inset-0 z-[1300] flex items-center justify-center p-3 sm:p-6"
-    role="dialog"
-    aria-modal="true"
+  <BaseDialog
+    :visible="visible"
+    :title="title"
+    :max-width-class="maxWidthClass"
+    :content-class="contentClass"
+    :footer-class="resolvedFooterClass"
+    :panel-class="panelClass"
+    :header-class="headerClass"
+    :close-button-class="closeButtonClass"
+    :close-button-text="closeButtonText"
+    @close="emit('close')"
   >
-    <div class="absolute inset-0 bg-black/60 backdrop-blur-[2px]" @click="emit('close')" />
-    <section
-      :class="[
-        props.variant === 'vben' ? 'vben-modal-shell' : 'panel-glass',
-        'relative z-10 w-full overflow-hidden rounded-lg',
-        props.maxWidthClass,
-      ]"
-    >
-      <div
-        :class="
-          props.variant === 'vben'
-            ? 'vben-modal-header'
-            : 'sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-white/10 bg-black/35 px-4 py-3 backdrop-blur sm:px-6'
-        "
-      >
-        <h3 :class="props.variant === 'vben' ? 'vben-modal-title' : 'text-sm font-semibold'">{{ title }}</h3>
-        <button
-          :class="props.variant === 'vben' ? 'vben-modal-close' : 'btn-soft px-3 py-1.5 text-xs'"
-          :aria-label="props.variant === 'vben' ? '关闭' : undefined"
-          @click="emit('close')"
-        >
-          {{ props.variant === "vben" ? "×" : "关闭" }}
-        </button>
-      </div>
+    <template #title>
+      <span :class="titleClass">{{ title }}</span>
+    </template>
 
-      <div :class="props.contentClass">
-        <slot />
-      </div>
+    <slot />
 
-      <div v-if="$slots.footer" :class="[props.variant === 'vben' ? 'vben-modal-footer' : '', props.footerClass]">
-        <slot name="footer" />
-      </div>
-    </section>
-  </div>
+    <template v-if="$slots.footer" #footer>
+      <slot name="footer" />
+    </template>
+  </BaseDialog>
 </template>
 
-<style scoped>
+<!-- 样式需穿透 BaseDialog + Teleport，不可使用 scoped -->
+<style>
 .vben-modal-shell {
   color: var(--text-main);
   background: var(--surface);
@@ -119,6 +132,10 @@ const emit = defineEmits<{
 .vben-modal-close:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--accent-ring);
+}
+
+.vben-modal-close:disabled {
+  opacity: 0.6;
 }
 
 .vben-modal-footer {

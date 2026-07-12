@@ -2,13 +2,13 @@
 import type { RouteLocationRaw } from "vue-router";
 import { cancelPrefetch, prefetchMediaDetail, schedulePrefetch } from "@/api/prefetch";
 import { tmdbImg } from "@/api/tmdb";
-import type { TVCastMember } from "./types";
+import type { MovieCastMember } from "./types";
 
 defineProps<{
   creditsLoading: boolean;
   creditsLoaded: boolean;
   creditsError?: string;
-  castMembers: TVCastMember[];
+  castMembers: MovieCastMember[];
   personLink: (personId: number) => RouteLocationRaw;
   onRefresh: () => void;
 }>();

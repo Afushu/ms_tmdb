@@ -57,7 +57,7 @@ const emit = defineEmits<{
         <span>{{ bodyMeta(item.response_body_bytes, item.response_body_truncated) }}</span>
       </div>
 
-      <button class="btn-soft-xs logs-action" @click="emit('open-detail', item)">详情</button>
+      <button class="btn-soft-xs logs-action" type="button" @click="emit('open-detail', item)">查看详情</button>
     </article>
 
     <p v-if="!loading && items.length === 0" class="logs-empty">暂无 TMDB 请求日志</p>

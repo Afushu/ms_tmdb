@@ -2,6 +2,9 @@
 import { computed, ref, watch } from "vue";
 import type { AdminSyncMode, AdminSyncPayload, AdminSyncResp } from "@/api/admin";
 import { syncMovie, syncPerson, syncTV } from "@/api/admin";
+import { clearMovieCache } from "@/api/movie";
+import { clearPersonCache } from "@/api/person";
+import { clearTVCache } from "@/api/tv";
 import ToastNotice from "@/components/common/ToastNotice.vue";
 import { useToastNotice } from "@/composables/useToastNotice";
 
@@ -153,6 +156,7 @@ async function applySync() {
     const data = resp.data as AdminSyncResp;
     changedFields.value = Array.isArray(data.changed_fields) ? data.changed_fields : [];
     selectedOverwriteFields.value = changedFields.value.filter((field) => !data.overwritten_fields?.includes(field));
+    invalidateSyncedCache();
     showToastNotice(data.message || "同步完成");
     emit("synced");
   } catch {
@@ -160,6 +164,22 @@ async function applySync() {
   } finally {
     syncing.value = false;
   }
+}
+
+function invalidateSyncedCache() {
+  const targetId = Number(props.targetId);
+  if (!Number.isFinite(targetId) || targetId <= 0) {
+    return;
+  }
+  if (props.mediaType === "movie") {
+    clearMovieCache(targetId);
+    return;
+  }
+  if (props.mediaType === "tv") {
+    clearTVCache(targetId);
+    return;
+  }
+  clearPersonCache(targetId);
 }
 
 watch(syncMode, (mode) => {

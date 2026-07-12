@@ -476,6 +476,20 @@
   border-top: 1px solid rgba(148, 163, 184, 0.1);
 }
 
+.logs-refresh-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.75rem 0 0.25rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(248, 113, 113, 0.28);
+  background: rgba(127, 29, 29, 0.22);
+  color: rgba(254, 202, 202, 0.95);
+  font-size: 0.82rem;
+}
+
 .logs-detail-modal {
   background: linear-gradient(150deg, rgba(27, 40, 64, 0.96) 0%, rgba(24, 36, 58, 0.92) 100%);
 }
@@ -545,7 +559,16 @@
   white-space: nowrap;
 }
 
-@media (max-width: 768px) {
+/* 320px–767px：日志列表降级为摘要卡片（时间/方法/路径/状态/耗时/查看详情） */
+@media (max-width: 767px) {
+  .logs-list-shell {
+    overflow-x: visible;
+    overflow-y: visible;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+
   .logs-list-head {
     display: none;
   }
@@ -553,53 +576,66 @@
   .logs-row.logs-grid-access,
   .logs-row.logs-grid-tmdb,
   .logs-row.logs-grid-auto-sync {
+    display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    row-gap: 0.75rem;
+    grid-template-areas:
+      "time status"
+      "main main"
+      "meta action";
+    row-gap: 0.55rem;
+    column-gap: 0.75rem;
     align-items: start;
+    min-height: 0;
+    margin-bottom: 0.65rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--glass-border);
+    border-radius: 0.75rem;
+    background: rgba(18, 22, 28, 0.54);
+    box-shadow: var(--glass-shadow-soft);
+  }
+
+  .logs-row:last-of-type {
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--glass-border);
   }
 
   .logs-time {
-    grid-column: 1;
-    grid-row: 1;
+    grid-area: time;
   }
 
   .logs-row > .logs-main {
-    grid-column: 1 / -1;
-    grid-row: 2;
+    grid-area: main;
   }
 
   .logs-row > :nth-child(3) {
-    grid-column: 2;
-    grid-row: 1;
+    grid-area: status;
     justify-self: end;
   }
 
   .logs-duration {
-    grid-column: 1;
-    grid-row: 3;
+    grid-area: meta;
+    align-self: center;
   }
 
-  .logs-body-cell {
-    grid-column: 1 / -1;
-    grid-row: 4;
-    grid-template-columns: repeat(2, minmax(0, max-content));
-    column-gap: 0.9rem;
-  }
-
+  /* 次要正文/来源信息在摘要卡片中隐藏，完整内容进入详情 */
+  .logs-body-cell,
   .logs-source {
-    grid-column: 1;
-    grid-row: 5;
+    display: none;
   }
 
   .logs-action {
-    grid-column: 2;
-    grid-row: 5;
-    align-self: end;
+    grid-area: action;
+    justify-self: end;
+    align-self: center;
   }
 
-}
+  .logs-empty {
+    border-top: 0;
+    border: 1px solid var(--glass-border);
+    border-radius: 0.75rem;
+    background: rgba(18, 22, 28, 0.54);
+  }
 
-@media (max-width: 640px) {
   .logs-page-shell {
     height: auto;
     overflow: visible;
@@ -623,27 +659,24 @@
   .settings-log-search-input {
     width: 100%;
   }
+}
 
-  .logs-row.logs-grid-access,
-  .logs-row.logs-grid-tmdb,
-  .logs-row.logs-grid-auto-sync {
-    grid-template-columns: minmax(0, 1fr);
+/* 768px 平板检查点：保留桌面表头布局，详情表格可安全横向滚动 */
+@media (min-width: 768px) {
+  .settings-table-shell.table-shell,
+  .table-shell.settings-table-shell {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 1rem;
   }
 
-  .logs-time,
-  .logs-row > .logs-main,
-  .logs-row > :nth-child(3),
-  .logs-duration,
-  .logs-body-cell,
-  .logs-source,
-  .logs-action {
-    grid-column: 1;
-    grid-row: auto;
-    justify-self: start;
+  .settings-detail-scroll {
+    padding-left: max(1rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1rem, env(safe-area-inset-right, 0px));
   }
 
-  .logs-body-cell {
-    grid-template-columns: minmax(0, 1fr);
+  .settings-detail-modal {
+    max-width: min(72rem, calc(100vw - 2rem));
   }
 }
 

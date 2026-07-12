@@ -1,574 +1,104 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import { compareMovieRemote, deleteMovie, updateMovie } from "@/api/admin";
-import { prefetchMediaDetail } from "@/api/prefetch";
-import type { AdminCompareFieldDetail, AdminSyncMode } from "@/api/admin";
-import ToastNotice from "@/components/common/ToastNotice.vue";
-import { getMovieCredits, getMovieDetail, getMovieGenreList } from "@/api/movie";
+import { computed, defineAsyncComponent, watch } from "vue";
 import { tmdbImg } from "@/api/tmdb";
+import LoadState from "@/components/common/LoadState.vue";
+import ToastNotice from "@/components/common/ToastNotice.vue";
+import MovieConfirmDialogs from "@/components/movie/MovieConfirmDialogs.vue";
 import { formatStatusLabel, movieStatusOptions } from "@/constants/mediaStatus";
+import { useMovieDetail } from "@/composables/useMovieDetail";
 import { useToastNotice } from "@/composables/useToastNotice";
-import {
-  normalizeCastMembers,
-  normalizeGenreOptions,
-  normalizeMovieEditForm,
-  type CastMember,
-  type GenreOption,
-  type MovieEditFormData,
-} from "@/utils/mediaNormalizers";
-import { scheduleAfterPaint } from "@/utils/schedule";
 
-const DetailSyncPanel = defineAsyncComponent(() => import("@/components/DetailSyncPanel.vue"));
-const GlassSelect = defineAsyncComponent(() => import("@/components/GlassSelect.vue"));
+const MovieRemoteDiffCard = defineAsyncComponent(() => import("@/components/movie/MovieRemoteDiffCard.vue"));
+const MovieLocalEditor = defineAsyncComponent(() => import("@/components/movie/MovieLocalEditor.vue"));
+const MovieCastSection = defineAsyncComponent(() => import("@/components/movie/MovieCastSection.vue"));
 
-type MovieCastMember = CastMember;
-type MovieEditForm = MovieEditFormData;
+const {
+  loading,
+  loadError,
+  refreshError,
+  detail,
+  castMembers,
+  creditsLoading,
+  creditsLoaded,
+  creditsError,
+  isEditing,
+  saving,
+  deleting,
+  saveMessage,
+  checkingRemoteDiff,
+  remoteDiffNotice,
+  remoteDiffMessage,
+  remoteDiffDecision,
+  showRemoteDiffDetails,
+  showLocalOverrideDiffDetails,
+  tmdbRiskModalVisible,
+  tmdbRiskCurrentId,
+  tmdbRiskNextId,
+  deleteConfirmModalVisible,
+  genreOptions,
+  genreKeyword,
+  filteredGenreOptions,
+  editForm,
+  movieId,
+  currentTmdbId,
+  originalTmdbId,
+  hasRewrittenTmdbId,
+  shouldShowSyncPanel,
+  allowedSyncModes,
+  goBack,
+  personLink,
+  updateGenreKeyword,
+  toggleRemoteDiffDetails,
+  toggleLocalOverrideDiffDetails,
+  closeTmdbRiskModal,
+  closeDeleteConfirmModal,
+  keepLocalData,
+  handleSynced,
+  deleteCurrentMovie,
+  enterEditMode,
+  cancelEditMode,
+  saveMovieChanges,
+  loadMovieCredits,
+  loadData,
+  confirmDeleteCurrentMovie,
+} = useMovieDetail();
 
-type MovieDetail = {
-  id?: number;
-  sync_tmdb_id?: number;
-  title?: string;
-  original_title?: string;
-  tagline?: string;
-  poster_path?: string;
-  backdrop_path?: string;
-  vote_average?: number;
-  release_date?: string;
-  runtime?: number;
-  status?: string;
-  overview?: string;
-  genres?: GenreOption[];
-};
-
-type RemoteDiffNotice = {
-  remoteSummary: string;
-  localOverrideSummary: string;
-  remoteFields: string[];
-  localOverrideFields: string[];
-  remoteDetails: AdminCompareFieldDetail[];
-  localOverrideDetails: AdminCompareFieldDetail[];
-};
-
-type RemoteDiffDecision = "unknown" | "has_diff_pending" | "keep_local" | "overwritten" | "no_diff";
-
-const route = useRoute();
-const router = useRouter();
-const loading = ref(false);
-const detail = ref<MovieDetail | null>(null);
-const castMembers = ref<MovieCastMember[]>([]);
-const creditsLoading = ref(false);
-const creditsLoaded = ref(false);
-const isEditing = ref(false);
-const saving = ref(false);
-const deleting = ref(false);
-const comparedRemoteId = ref<number | null>(null);
-const checkingRemoteDiff = ref(false);
-const remoteDiffNotice = ref<RemoteDiffNotice | null>(null);
-const remoteDiffMessage = ref("");
-const remoteDiffDecision = ref<RemoteDiffDecision>("unknown");
-const showRemoteDiffDetails = ref(false);
-const showLocalOverrideDiffDetails = ref(false);
-const tmdbRiskModalVisible = ref(false);
-const tmdbRiskCurrentId = ref<number | null>(null);
-const tmdbRiskNextId = ref<number | null>(null);
-let tmdbRiskConfirmResolver: ((confirmed: boolean) => void) | null = null;
-const deleteConfirmModalVisible = ref(false);
-const genreOptions = ref<GenreOption[]>([]);
-const genreOptionsLoaded = ref(false);
-const genreKeyword = ref("");
 const { toastVisible, toastText, toastTone, showToastNotice, closeToastNotice } = useToastNotice();
-let loadReqSeq = 0;
-let creditsReqSeq = 0;
-let cancelDeferredLoads: (() => void) | null = null;
-const filteredGenreOptions = computed(() => {
-  const keyword = genreKeyword.value.trim().toLowerCase();
-  if (!keyword) {
-    return genreOptions.value;
-  }
-  return genreOptions.value.filter((genre) => genre.name.toLowerCase().includes(keyword));
-});
-const editForm = ref<MovieEditForm>({
-  tmdb_id: "",
-  title: "",
-  original_title: "",
-  genre_names: [],
-  tagline: "",
-  release_date: "",
-  status: "",
-  runtime: "",
-  original_language: "",
-  homepage: "",
-  poster_path: "",
-  backdrop_path: "",
-  vote_average: "",
-  popularity: "",
-  overview: "",
+
+const deleteConfirmTitle = computed(() => {
+  return detail.value?.title || detail.value?.original_title || `ID ${movieId.value}`;
 });
 
-const movieId = computed(() => Number(route.params.id));
-const currentTmdbId = computed(() => Number(detail.value?.id ?? movieId.value ?? 0));
-const originalTmdbId = computed(() => Number(detail.value?.sync_tmdb_id ?? detail.value?.id ?? movieId.value ?? 0));
-const hasRewrittenTmdbId = computed(() => {
-  return originalTmdbId.value > 0 && currentTmdbId.value > 0 && originalTmdbId.value !== currentTmdbId.value;
-});
-const hasRemoteOnlyDiff = computed(() => (remoteDiffNotice.value?.remoteFields.length ?? 0) > 0);
-const hasLocalOverrideDiff = computed(() => (remoteDiffNotice.value?.localOverrideFields.length ?? 0) > 0);
-const shouldShowSyncPanel = computed(() => {
-  return remoteDiffDecision.value === "has_diff_pending";
-});
-const allowedSyncModes = computed<AdminSyncMode[]>(() => {
-  if (remoteDiffDecision.value === "no_diff") {
-    return ["update_unmodified"];
+watch(saveMessage, (message) => {
+  if (message.trim()) {
+    showToastNotice(message);
+    saveMessage.value = "";
   }
-  if (remoteDiffDecision.value === "has_diff_pending") {
-    if (hasRemoteOnlyDiff.value && hasLocalOverrideDiff.value) {
-      return ["update_unmodified", "overwrite_all", "selective"];
-    }
-    if (hasRemoteOnlyDiff.value) {
-      return ["update_unmodified", "overwrite_all"];
-    }
-    return ["overwrite_all", "selective"];
-  }
-  if (remoteDiffDecision.value === "keep_local") {
-    if (hasRemoteOnlyDiff.value && hasLocalOverrideDiff.value) {
-      return ["update_unmodified", "overwrite_all", "selective"];
-    }
-    if (hasRemoteOnlyDiff.value) {
-      return ["update_unmodified", "overwrite_all"];
-    }
-    return ["overwrite_all", "selective"];
-  }
-  return ["update_unmodified", "overwrite_all", "selective"];
-});
-
-function goBack() {
-  const historyState = window.history.state as { back?: string } | null;
-  if (historyState?.back) {
-    router.back();
-    return;
-  }
-  void router.push({
-    path: "/library",
-    query: { tab: "movie" },
-  });
-}
-
-function personLink(personId: number) {
-  return {
-    path: `/person/${personId}`,
-    query: {
-      fromType: "movie",
-      fromId: String(movieId.value),
-    },
-  };
-}
-
-function prefetchPerson(personId: number) {
-  prefetchMediaDetail("person", personId);
-}
-
-function resetEditForm(data: unknown) {
-  editForm.value = normalizeMovieEditForm(data, movieId.value);
-}
-
-function resetRemoteDiffState() {
-  remoteDiffNotice.value = null;
-  remoteDiffMessage.value = "";
-  remoteDiffDecision.value = "unknown";
-  showRemoteDiffDetails.value = false;
-  showLocalOverrideDiffDetails.value = false;
-  checkingRemoteDiff.value = false;
-  comparedRemoteId.value = null;
-}
-
-function resetCreditsState() {
-  creditsReqSeq++;
-  castMembers.value = [];
-  creditsLoading.value = false;
-  creditsLoaded.value = false;
-}
-
-function stopDeferredLoads() {
-  if (cancelDeferredLoads) {
-    cancelDeferredLoads();
-    cancelDeferredLoads = null;
-  }
-}
-
-function scheduleDeferredLoadsForDetail() {
-  stopDeferredLoads();
-  cancelDeferredLoads = scheduleAfterPaint(() => {
-    void loadMovieCredits();
-  });
-}
-
-async function loadGenreOptions(force = false) {
-  if (!force && genreOptionsLoaded.value) {
-    return;
-  }
-  try {
-    const resp = await getMovieGenreList();
-    const options = normalizeGenreOptions(resp.data?.genres);
-    if (options.length > 0) {
-      genreOptions.value = options;
-      genreOptionsLoaded.value = true;
-      return;
-    }
-  } catch {
-    // 忽略类型列表加载失败，降级使用详情已有类型
-  }
-
-  genreOptions.value = normalizeGenreOptions(detail.value?.genres);
-}
-
-function enterEditMode() {
-  if (!detail.value) return;
-  resetEditForm(detail.value);
-  genreKeyword.value = "";
-  isEditing.value = true;
-  if (!genreOptionsLoaded.value) {
-    void loadGenreOptions();
-  }
-}
-
-function cancelEditMode() {
-  if (detail.value) {
-    resetEditForm(detail.value);
-  }
-  genreKeyword.value = "";
-  isEditing.value = false;
-}
-
-function closeTmdbRiskModal(confirmed: boolean) {
-  tmdbRiskModalVisible.value = false;
-  const resolver = tmdbRiskConfirmResolver;
-  tmdbRiskConfirmResolver = null;
-  tmdbRiskCurrentId.value = null;
-  tmdbRiskNextId.value = null;
-  if (resolver) {
-    resolver(confirmed);
-  }
-}
-
-function askTmdbRiskConfirm(currentId: number, nextId: number): Promise<boolean> {
-  tmdbRiskCurrentId.value = currentId;
-  tmdbRiskNextId.value = nextId;
-  tmdbRiskModalVisible.value = true;
-  return new Promise((resolve) => {
-    tmdbRiskConfirmResolver = resolve;
-  });
-}
-
-async function deleteCurrentMovie() {
-  if (!movieId.value) {
-    return;
-  }
-  deleteConfirmModalVisible.value = true;
-}
-
-function closeDeleteConfirmModal() {
-  deleteConfirmModalVisible.value = false;
-}
-
-async function confirmDeleteCurrentMovie() {
-  if (!movieId.value) {
-    deleteConfirmModalVisible.value = false;
-    return;
-  }
-
-  deleting.value = true;
-  try {
-    deleteConfirmModalVisible.value = false;
-    await deleteMovie(movieId.value);
-    await router.push({
-      path: "/library",
-      query: { tab: "movie" },
-    });
-  } catch {
-    /* handled by global toast */
-  } finally {
-    deleting.value = false;
-  }
-}
-
-async function loadMovieCredits(force = false) {
-  if (!movieId.value || creditsLoading.value || (creditsLoaded.value && !force)) {
-    return;
-  }
-
-  const requestSeq = ++creditsReqSeq;
-  const targetId = movieId.value;
-  creditsLoading.value = true;
-  try {
-    const resp = await getMovieCredits(targetId, "zh-CN", { force });
-    if (requestSeq !== creditsReqSeq || targetId !== movieId.value) {
-      return;
-    }
-    castMembers.value = normalizeCastMembers(resp.data);
-    creditsLoaded.value = true;
-  } catch {
-    /* handled by global toast */
-  } finally {
-    if (requestSeq === creditsReqSeq) {
-      creditsLoading.value = false;
-    }
-  }
-}
-
-async function checkRemoteDiffAndPrompt(force = false) {
-  if (!movieId.value || checkingRemoteDiff.value || (!force && comparedRemoteId.value === movieId.value)) {
-    return;
-  }
-  if (movieId.value < 0) {
-    remoteDiffNotice.value = null;
-    showRemoteDiffDetails.value = false;
-    showLocalOverrideDiffDetails.value = false;
-    remoteDiffDecision.value = "keep_local";
-    remoteDiffMessage.value = "本地新建条目不参与 TMDB 远程差异检测";
-    comparedRemoteId.value = movieId.value;
-    return;
-  }
-  checkingRemoteDiff.value = true;
-  try {
-    const resp = await compareMovieRemote(movieId.value);
-    const remoteFields = Array.isArray(resp.data?.diff_fields) ? resp.data.diff_fields : [];
-    const localOverrideFields = Array.isArray(resp.data?.local_override_diff_fields)
-      ? resp.data.local_override_diff_fields
-      : [];
-    const hasDiff = Boolean(resp.data?.has_diff) && (remoteFields.length > 0 || localOverrideFields.length > 0);
-    if (!hasDiff) {
-      remoteDiffNotice.value = null;
-      showRemoteDiffDetails.value = false;
-      showLocalOverrideDiffDetails.value = false;
-      remoteDiffDecision.value = "no_diff";
-      remoteDiffMessage.value = "";
-      comparedRemoteId.value = movieId.value;
-      return;
-    }
-
-    const remoteFieldPreview = remoteFields.slice(0, 6).join("、");
-    const remoteSummary =
-      remoteFields.length === 0
-        ? "无"
-        : remoteFields.length > 6
-          ? `${remoteFieldPreview} 等 ${remoteFields.length} 项`
-          : `${remoteFieldPreview}（共 ${remoteFields.length} 项）`;
-    const localOverridePreview = localOverrideFields.slice(0, 6).join("、");
-    const localOverrideSummary =
-      localOverrideFields.length === 0
-        ? "无"
-        : localOverrideFields.length > 6
-          ? `${localOverridePreview} 等 ${localOverrideFields.length} 项`
-          : `${localOverridePreview}（共 ${localOverrideFields.length} 项）`;
-    const detailItems = normalizeDiffDetails(resp.data?.diff_details);
-    const remoteDetails = buildDiffDetailsByFields(remoteFields, detailItems, "remote");
-    const localOverrideDetails = buildDiffDetailsByFields(localOverrideFields, detailItems, "local_override");
-    remoteDiffNotice.value = {
-      remoteSummary,
-      localOverrideSummary,
-      remoteFields,
-      localOverrideFields,
-      remoteDetails,
-      localOverrideDetails,
-    };
-    showRemoteDiffDetails.value = false;
-    showLocalOverrideDiffDetails.value = false;
-    remoteDiffMessage.value = "";
-    remoteDiffDecision.value = "has_diff_pending";
-    comparedRemoteId.value = movieId.value;
-  } catch {
-    /* handled by global toast */
-  } finally {
-    checkingRemoteDiff.value = false;
-  }
-}
-
-function keepLocalData() {
-  remoteDiffNotice.value = null;
-  showRemoteDiffDetails.value = false;
-  showLocalOverrideDiffDetails.value = false;
-  remoteDiffDecision.value = "keep_local";
-  remoteDiffMessage.value = "已保留本地数据，已跳过本次远程差异处理";
-}
-
-function handleSynced() {
-  comparedRemoteId.value = null;
-  void loadData({ force: true });
-}
-
-async function loadData(options: { force?: boolean; checkRemoteDiff?: boolean } = {}) {
-  const { force = false, checkRemoteDiff = true } = options;
-  if (!movieId.value) {
-    return;
-  }
-  const requestSeq = ++loadReqSeq;
-  stopDeferredLoads();
-  loading.value = true;
-  resetRemoteDiffState();
-  resetCreditsState();
-  try {
-    const resp = await getMovieDetail(movieId.value, "zh-CN", "", { force });
-    if (requestSeq !== loadReqSeq) {
-      return;
-    }
-    detail.value = resp.data;
-    resetEditForm(resp.data);
-    genreOptions.value = normalizeGenreOptions(resp.data?.genres);
-    genreOptionsLoaded.value = false;
-    genreKeyword.value = "";
-    isEditing.value = false;
-    if (checkRemoteDiff) {
-      await checkRemoteDiffAndPrompt();
-    }
-    scheduleDeferredLoadsForDetail();
-  } catch {
-    /* handled by global toast */
-  } finally {
-    if (requestSeq === loadReqSeq) {
-      loading.value = false;
-    }
-  }
-}
-
-function parseOptionalInt(raw: string): number | undefined {
-  const text = raw.trim();
-  if (!text) return undefined;
-  const value = Number(text);
-  if (!Number.isFinite(value)) return undefined;
-  return Math.trunc(value);
-}
-
-function parseOptionalFloat(raw: string): number | undefined {
-  const text = raw.trim();
-  if (!text) return undefined;
-  const value = Number(text);
-  if (!Number.isFinite(value)) return undefined;
-  return value;
-}
-
-function normalizeDiffDetails(raw: unknown): AdminCompareFieldDetail[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((item) => {
-      const value = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
-      return {
-        field: String(value.field ?? "").trim(),
-        diff_type: String(value.diff_type ?? "remote").trim() || "remote",
-        local: String(value.local ?? "-"),
-        remote: String(value.remote ?? "-"),
-      };
-    })
-    .filter((item) => item.field.length > 0);
-}
-
-function buildDiffDetailsByFields(
-  fields: string[],
-  details: AdminCompareFieldDetail[],
-  diffType: "remote" | "local_override",
-): AdminCompareFieldDetail[] {
-  const detailMap = new Map(details.filter((item) => item.diff_type === diffType).map((item) => [item.field, item]));
-  return fields.map(
-    (field) =>
-      detailMap.get(field) ?? {
-        field,
-        diff_type: diffType,
-        local: "-",
-        remote: "-",
-      },
-  );
-}
-
-async function saveMovieChanges() {
-  if (!movieId.value) {
-    return;
-  }
-  const runtime = parseOptionalInt(editForm.value.runtime);
-  if (editForm.value.runtime.trim() && runtime === undefined) {
-    return;
-  }
-  const voteAverage = parseOptionalFloat(editForm.value.vote_average);
-  if (editForm.value.vote_average.trim() && voteAverage === undefined) {
-    return;
-  }
-  const popularity = parseOptionalFloat(editForm.value.popularity);
-  if (editForm.value.popularity.trim() && popularity === undefined) {
-    return;
-  }
-
-  const rawTmdbID = editForm.value.tmdb_id.trim();
-  const nextTmdbID = parseOptionalInt(rawTmdbID);
-  const tmdbChanged = nextTmdbID !== undefined && nextTmdbID !== movieId.value;
-  if (tmdbChanged) {
-    if (nextTmdbID === undefined || nextTmdbID <= 0) {
-      return;
-    }
-    const riskConfirm = await askTmdbRiskConfirm(movieId.value, nextTmdbID);
-    if (!riskConfirm) {
-      return;
-    }
-  }
-
-  saving.value = true;
-  try {
-    const payload: Record<string, unknown> = {
-      title: editForm.value.title.trim(),
-      original_title: editForm.value.original_title.trim(),
-      genre_names: editForm.value.genre_names,
-      tagline: editForm.value.tagline.trim(),
-      release_date: editForm.value.release_date.trim(),
-      status: editForm.value.status.trim(),
-      original_language: editForm.value.original_language.trim(),
-      homepage: editForm.value.homepage.trim(),
-      poster_path: editForm.value.poster_path.trim(),
-      backdrop_path: editForm.value.backdrop_path.trim(),
-      overview: editForm.value.overview.trim(),
-    };
-    if (runtime !== undefined) {
-      payload.runtime = runtime;
-    }
-    if (voteAverage !== undefined) {
-      payload.vote_average = voteAverage;
-    }
-    if (popularity !== undefined) {
-      payload.popularity = popularity;
-    }
-    if (tmdbChanged && nextTmdbID !== undefined) {
-      payload.tmdb_id = nextTmdbID;
-    }
-
-    await updateMovie(movieId.value, payload);
-    showToastNotice("已保存到本地数据库");
-    isEditing.value = false;
-    comparedRemoteId.value = null;
-    if (tmdbChanged && nextTmdbID !== undefined) {
-      await router.replace(`/movie/${nextTmdbID}`);
-      return;
-    }
-    await loadData({ force: true });
-  } catch {
-    /* handled by global toast */
-  } finally {
-    saving.value = false;
-  }
-}
-
-onMounted(loadData);
-watch(movieId, () => {
-  void loadData();
-});
-
-onBeforeUnmount(() => {
-  loadReqSeq++;
-  creditsReqSeq++;
-  stopDeferredLoads();
 });
 </script>
 
 <template>
-  <p v-if="loading" class="card text-sm text-black/60">加载中...</p>
+  <LoadState
+    v-if="!detail"
+    class="card"
+    :loading="loading"
+    :error="loadError"
+    loading-text="电影详情加载中..."
+    @retry="() => loadData({ force: true })"
+  />
 
-  <template v-else-if="detail">
+  <template v-else>
+    <div
+      v-if="refreshError"
+      class="logs-refresh-error mb-4"
+      role="status"
+      aria-live="polite"
+    >
+      <span>刷新失败：{{ refreshError }}</span>
+      <button type="button" class="btn-soft-xs" :disabled="loading" @click="() => loadData({ force: true })">
+        重试
+      </button>
+    </div>
     <!-- 背景横幅 -->
     <section class="hero-banner hero-banner-detail">
       <img
@@ -638,305 +168,62 @@ onBeforeUnmount(() => {
             {{ detail.overview || "暂无简介" }}
           </p>
 
-          <div
-            v-if="checkingRemoteDiff || remoteDiffNotice || remoteDiffMessage || remoteDiffDecision === 'no_diff'"
-            class="detail-alert"
-          >
-            <p v-if="checkingRemoteDiff" class="text-xs text-amber-700">正在检测远程数据差异...</p>
+          <MovieRemoteDiffCard
+            :target-id="movieId"
+            :checking-remote-diff="checkingRemoteDiff"
+            :remote-diff-notice="remoteDiffNotice"
+            :remote-diff-message="remoteDiffMessage"
+            :remote-diff-decision="remoteDiffDecision"
+            :show-remote-diff-details="showRemoteDiffDetails"
+            :show-local-override-diff-details="showLocalOverrideDiffDetails"
+            :should-show-sync-panel="shouldShowSyncPanel"
+            :allowed-sync-modes="allowedSyncModes"
+            :on-toggle-remote-details="toggleRemoteDiffDetails"
+            :on-toggle-local-details="toggleLocalOverrideDiffDetails"
+            :on-keep-local="keepLocalData"
+            :on-synced="handleSynced"
+          />
 
-            <template v-else-if="remoteDiffNotice">
-              <p class="detail-alert-title">检测到远程电影数据与本地不一致</p>
-              <p class="detail-alert-text">远程变化字段：{{ remoteDiffNotice.remoteSummary }}</p>
-              <p class="detail-alert-text">本地修改字段：{{ remoteDiffNotice.localOverrideSummary }}</p>
-              <div class="mt-2 flex flex-wrap items-center gap-2">
-                <button
-                  v-if="remoteDiffNotice.remoteDetails.length"
-                  class="detail-alert-action"
-                  @click="showRemoteDiffDetails = !showRemoteDiffDetails"
-                >
-                  {{ showRemoteDiffDetails ? "收起远程变化明细" : "查看远程变化明细" }}
-                </button>
-                <button
-                  v-if="remoteDiffNotice.localOverrideDetails.length"
-                  class="detail-alert-action"
-                  @click="showLocalOverrideDiffDetails = !showLocalOverrideDiffDetails"
-                >
-                  {{ showLocalOverrideDiffDetails ? "收起本地修改明细" : "查看本地修改明细" }}
-                </button>
-                <button class="detail-alert-action disabled:opacity-60" @click="keepLocalData">
-                  暂不处理，保留本地
-                </button>
-              </div>
+          <MovieLocalEditor
+            :is-editing="isEditing"
+            :deleting="deleting"
+            :saving="saving"
+            :edit-form="editForm"
+            :genre-keyword="genreKeyword"
+            :filtered-genre-options="filteredGenreOptions"
+            :genre-options="genreOptions"
+            :movie-status-options="movieStatusOptions"
+            :on-delete="deleteCurrentMovie"
+            :on-enter-edit="enterEditMode"
+            :on-save="saveMovieChanges"
+            :on-cancel="cancelEditMode"
+            :on-update-genre-keyword="updateGenreKeyword"
+          />
 
-              <div v-if="showRemoteDiffDetails && remoteDiffNotice.remoteDetails.length" class="detail-diff-list">
-                <div
-                  v-for="item in remoteDiffNotice.remoteDetails"
-                  :key="`remote-${item.field}`"
-                  class="detail-diff-item"
-                >
-                  <p class="text-xs font-semibold text-amber-900">{{ item.field }}</p>
-                  <p class="mt-1 text-xs text-amber-800">本地：{{ item.local }}</p>
-                  <p class="mt-1 text-xs text-amber-800">远程：{{ item.remote }}</p>
-                </div>
-              </div>
-
-              <div
-                v-if="showLocalOverrideDiffDetails && remoteDiffNotice.localOverrideDetails.length"
-                class="detail-diff-list"
-              >
-                <div
-                  v-for="item in remoteDiffNotice.localOverrideDetails"
-                  :key="`local-${item.field}`"
-                  class="detail-diff-item"
-                >
-                  <p class="text-xs font-semibold text-amber-900">{{ item.field }}</p>
-                  <p class="mt-1 text-xs text-amber-800">本地：{{ item.local }}</p>
-                  <p class="mt-1 text-xs text-amber-800">远程：{{ item.remote }}</p>
-                </div>
-              </div>
-            </template>
-
-            <DetailSyncPanel
-              v-if="shouldShowSyncPanel"
-              media-type="movie"
-              :target-id="movieId"
-              :allowed-modes="allowedSyncModes"
-              :preset-changed-fields="remoteDiffNotice?.localOverrideFields ?? []"
-              :embedded="true"
-              @synced="handleSynced"
-            />
-
-            <p
-              v-if="!checkingRemoteDiff && !remoteDiffNotice && remoteDiffDecision === 'no_diff'"
-              class="mt-3 text-xs text-green-700"
-            >
-              已完成检查，当前未发现远程差异。
-            </p>
-            <p v-if="!checkingRemoteDiff && !remoteDiffNotice && remoteDiffMessage" class="mt-3 text-xs text-green-700">
-              {{ remoteDiffMessage }}
-            </p>
-          </div>
-
-          <div class="panel-glass local-editor-panel content-auto mt-6 rounded-xl p-4">
-            <div class="local-editor-header">
-              <h3 class="text-sm font-semibold">本地信息编辑</h3>
-              <div class="flex items-center gap-2">
-                <button
-                  class="btn-danger-soft-xs disabled:opacity-60"
-                  :disabled="deleting || saving"
-                  @click="deleteCurrentMovie"
-                >
-                  {{ deleting ? "删除中..." : "删除本地数据" }}
-                </button>
-                <button v-if="!isEditing" class="btn-soft-xs" @click="enterEditMode">编辑</button>
-              </div>
-            </div>
-
-            <p v-if="!isEditing" class="mt-2 text-xs text-black/60">
-              当前为查看模式，点击“编辑”后可修改并保存到本地数据库。
-            </p>
-
-            <div v-else class="mt-3">
-              <div class="grid gap-3 md:grid-cols-2">
-                <label class="text-xs text-black/60">
-                  TMDB ID
-                  <input v-model="editForm.tmdb_id" class="field-control mt-1 w-full text-sm" placeholder="例如：550" />
-                  <p class="mt-1 text-[11px] text-amber-700">
-                    高风险：改动后，后续同步仍使用旧 TMDB ID 拉取；对外返回与访问使用新 TMDB ID。
-                  </p>
-                </label>
-                <label class="text-xs text-black/60">
-                  片名
-                  <input v-model="editForm.title" class="field-control mt-1 w-full text-sm" placeholder="电影标题" />
-                </label>
-                <label class="text-xs text-black/60">
-                  原始片名
-                  <input
-                    v-model="editForm.original_title"
-                    class="field-control mt-1 w-full text-sm"
-                    placeholder="Original Title"
-                  />
-                </label>
-                <label class="text-xs text-black/60 md:col-span-2">
-                  类型（多选）
-                  <div class="field-group-box">
-                    <input v-model="genreKeyword" class="field-control-xs w-full" placeholder="筛选类型" />
-                    <label v-for="genre in filteredGenreOptions" :key="genre.id" class="field-choice-pill">
-                      <input v-model="editForm.genre_names" type="checkbox" class="check-control" :value="genre.name" />
-                      <span>{{ genre.name }}</span>
-                    </label>
-                    <span v-if="!genreOptions.length" class="px-1 py-1 text-xs text-black/50"> 暂无可选类型 </span>
-                    <span v-else-if="!filteredGenreOptions.length" class="px-1 py-1 text-xs text-black/50">
-                      无匹配类型
-                    </span>
-                  </div>
-                </label>
-                <label class="text-xs text-black/60">
-                  上映日期
-                  <input
-                    v-model="editForm.release_date"
-                    class="field-control mt-1 w-full text-sm"
-                    placeholder="YYYY-MM-DD"
-                  />
-                </label>
-                <label class="text-xs text-black/60">
-                  状态
-                  <GlassSelect v-model="editForm.status" :options="movieStatusOptions" class="mt-1 w-full" />
-                </label>
-                <label class="text-xs text-black/60">
-                  标语
-                  <input v-model="editForm.tagline" class="field-control mt-1 w-full text-sm" placeholder="Tagline" />
-                </label>
-                <label class="text-xs text-black/60">
-                  时长(分钟)
-                  <input v-model="editForm.runtime" class="field-control mt-1 w-full text-sm" placeholder="Runtime" />
-                </label>
-                <label class="text-xs text-black/60">
-                  原始语言
-                  <input
-                    v-model="editForm.original_language"
-                    class="field-control mt-1 w-full text-sm"
-                    placeholder="zh / en"
-                  />
-                </label>
-                <label class="text-xs text-black/60">
-                  主页链接
-                  <input
-                    v-model="editForm.homepage"
-                    class="field-control mt-1 w-full text-sm"
-                    placeholder="https://..."
-                  />
-                </label>
-                <label class="text-xs text-black/60">
-                  海报路径
-                  <input
-                    v-model="editForm.poster_path"
-                    class="field-control mt-1 w-full text-sm"
-                    placeholder="/poster.jpg"
-                  />
-                </label>
-                <label class="text-xs text-black/60">
-                  背景图路径
-                  <input
-                    v-model="editForm.backdrop_path"
-                    class="field-control mt-1 w-full text-sm"
-                    placeholder="/backdrop.jpg"
-                  />
-                </label>
-                <label class="text-xs text-black/60">
-                  评分
-                  <input v-model="editForm.vote_average" class="field-control mt-1 w-full text-sm" placeholder="7.8" />
-                </label>
-                <label class="text-xs text-black/60">
-                  热度
-                  <input v-model="editForm.popularity" class="field-control mt-1 w-full text-sm" placeholder="123.45" />
-                </label>
-                <label class="text-xs text-black/60 md:col-span-2">
-                  简介
-                  <textarea
-                    v-model="editForm.overview"
-                    rows="4"
-                    class="field-control mt-1 w-full text-sm"
-                    placeholder="简介"
-                  />
-                </label>
-              </div>
-
-              <div class="mt-3 flex items-center gap-3">
-                <button class="btn-primary disabled:opacity-60" :disabled="saving" @click="saveMovieChanges">
-                  {{ saving ? "保存中..." : "保存到本地数据库" }}
-                </button>
-                <button class="btn-soft disabled:opacity-60" :disabled="saving" @click="cancelEditMode">取消</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- 演员 -->
-          <div class="content-auto mt-6">
-            <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <h3 class="text-sm font-semibold">主要演员</h3>
-              <button
-                class="btn-soft-xs px-3 py-1 disabled:opacity-60"
-                :disabled="creditsLoading"
-                @click="loadMovieCredits(true)"
-              >
-                {{ creditsLoading ? "加载中..." : creditsLoaded ? "刷新演员" : "加载演员" }}
-              </button>
-            </div>
-            <p v-if="creditsLoading" class="text-xs text-black/55">正在加载演员信息...</p>
-            <p v-else-if="creditsLoaded && !castMembers.length" class="text-xs text-black/55">暂无演员数据</p>
-            <div v-else-if="castMembers.length" class="cast-grid">
-              <div v-for="c in castMembers" :key="c.id" class="cast-card">
-                <RouterLink
-                  :to="personLink(c.id)"
-                  @mouseenter="prefetchPerson(c.id)"
-                  @focus="prefetchPerson(c.id)"
-                  @touchstart.passive="prefetchPerson(c.id)"
-                >
-                  <img :src="tmdbImg(c.profile_path, 'w185')" :alt="c.name" class="cast-img" loading="lazy" />
-                </RouterLink>
-                <p class="mt-1 truncate text-xs font-medium">{{ c.name }}</p>
-                <p class="truncate text-xs text-black/50">{{ c.character }}</p>
-              </div>
-            </div>
-          </div>
+          <MovieCastSection
+            :credits-loading="creditsLoading"
+            :credits-loaded="creditsLoaded"
+            :credits-error="creditsError"
+            :cast-members="castMembers"
+            :person-link="personLink"
+            :on-refresh="() => loadMovieCredits(true)"
+          />
         </div>
       </div>
     </section>
   </template>
 
-  <div
-    v-if="tmdbRiskModalVisible"
-    class="fixed inset-0 z-[1300] flex items-center justify-center bg-black/45 p-4"
-    role="dialog"
-    aria-modal="true"
-    @click.self="closeTmdbRiskModal(false)"
-  >
-    <section class="panel-glass w-full max-w-md rounded-lg p-5">
-      <h3 class="text-base font-semibold text-amber-800">修改 TMDB ID 风险确认</h3>
-      <p class="mt-2 text-sm text-black/75">
-        你正在修改电影 TMDB ID：
-        <span class="font-medium">{{ tmdbRiskCurrentId }}</span>
-        ->
-        <span class="font-medium">{{ tmdbRiskNextId }}</span>
-      </p>
-      <div class="mt-3 rounded-lg border border-amber-200 bg-amber-50/80 p-3 text-xs leading-relaxed text-amber-800">
-        <p>1) 这是高风险操作，可能导致与第三方历史引用不一致；</p>
-        <p>2) 之后自动/手动同步将继续使用旧 TMDB ID 向 TMDB 拉取；</p>
-        <p>3) 对外返回与页面访问将使用新的 TMDB ID。</p>
-      </div>
-
-      <div class="mt-4 flex items-center justify-end gap-2">
-        <button class="btn-soft" @click="closeTmdbRiskModal(false)">取消</button>
-        <button class="btn-primary" @click="closeTmdbRiskModal(true)">确认继续</button>
-      </div>
-    </section>
-  </div>
-
-  <div
-    v-if="deleteConfirmModalVisible"
-    class="fixed inset-0 z-[1300] flex items-center justify-center bg-black/45 p-4"
-    role="dialog"
-    aria-modal="true"
-    @click.self="closeDeleteConfirmModal"
-  >
-    <section class="panel-glass w-full max-w-md rounded-lg p-5">
-      <h3 class="text-base font-semibold text-red-700">删除本地数据确认</h3>
-      <p class="mt-2 text-sm text-black/75">
-        确认删除电影
-        <span class="font-medium">{{ detail?.title || detail?.original_title || `ID ${movieId}` }}</span>
-        的本地数据吗？
-      </p>
-      <p class="mt-2 text-xs text-red-700">删除后不可恢复。</p>
-
-      <div class="mt-4 flex items-center justify-end gap-2">
-        <button class="btn-soft" :disabled="deleting" @click="closeDeleteConfirmModal">取消</button>
-        <button class="btn-danger-soft" :disabled="deleting" @click="confirmDeleteCurrentMovie">
-          {{ deleting ? "删除中..." : "确认删除" }}
-        </button>
-      </div>
-    </section>
-  </div>
+  <MovieConfirmDialogs
+    :tmdb-risk-modal-visible="tmdbRiskModalVisible"
+    :tmdb-risk-current-id="tmdbRiskCurrentId"
+    :tmdb-risk-next-id="tmdbRiskNextId"
+    :delete-confirm-modal-visible="deleteConfirmModalVisible"
+    :deleting="deleting"
+    :movie-title="deleteConfirmTitle"
+    :on-close-tmdb-risk="closeTmdbRiskModal"
+    :on-close-delete-confirm="closeDeleteConfirmModal"
+    :on-confirm-delete="confirmDeleteCurrentMovie"
+  />
 
   <ToastNotice :visible="toastVisible" :message="toastText" :tone="toastTone" @close="closeToastNotice" />
 </template>

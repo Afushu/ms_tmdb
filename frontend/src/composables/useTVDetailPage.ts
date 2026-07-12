@@ -9,9 +9,9 @@ import {
   updateTV,
   updateTVSeasonLocal,
 } from "@/api/admin";
-import { prefetchMediaDetail } from "@/api/prefetch";
+
 import type { AdminCompareFieldDetail, AdminSyncMode } from "@/api/admin";
-import { getTVCredits, getTVDetail, getTVGenreList, getTVSeasonDetail } from "@/api/tv";
+import { clearTVCache, getTVCredits, getTVDetail, getTVGenreList, getTVSeasonDetail } from "@/api/tv";
 import type {
   GenreOption,
   RemoteDiffDecision,
@@ -24,6 +24,7 @@ import type {
   TVSeasonForm,
   TVSeasonSummary,
 } from "@/components/tv/types";
+import { resolveErrorMessage } from "@/utils/errors";
 import { normalizeCastMembers, normalizeGenreOptions, normalizeTVEditForm } from "@/utils/mediaNormalizers";
 import { scheduleAfterPaint } from "@/utils/schedule";
 
@@ -57,6 +58,7 @@ export function useTVDetailPage() {
 
   const loading = ref(false);
   const error = ref("");
+  const refreshError = ref("");
   const detail = ref<TVDetail | null>(null);
   const castMembers = ref<TVCastMember[]>([]);
   const creditsLoading = ref(false);
@@ -237,9 +239,7 @@ export function useTVDetailPage() {
     };
   }
 
-  function prefetchPerson(personId: number) {
-    prefetchMediaDetail("person", personId);
-  }
+
 
   function updateGenreKeyword(value: string) {
     genreKeyword.value = value;
@@ -272,6 +272,7 @@ export function useTVDetailPage() {
     castMembers.value = [];
     creditsLoading.value = false;
     creditsLoaded.value = false;
+    creditsError.value = "";
   }
 
   function stopDeferredLoads() {
@@ -685,6 +686,7 @@ export function useTVDetailPage() {
     seasonFormError.value = "";
     try {
       const resp = await updateTVSeasonLocal(tvId.value, seasonNumber, payload);
+      clearTVCache(tvId.value);
       selectedSeasonNumber.value = seasonNumber;
       selectedSeasonPayload.value = toPlainRecord(resp.data?.data);
       selectedSeasonDetail.value = normalizeSeasonDetail(selectedSeasonPayload.value, seasonNumber);
@@ -726,6 +728,7 @@ export function useTVDetailPage() {
     episodeFormError.value = "";
     try {
       await deleteTVSeasonLocal(tvId.value, deletingSeasonNumber);
+      clearTVCache(tvId.value);
       closeSeasonEditor();
       closeEpisodeCreator();
       cancelEpisodeEdit();
@@ -799,6 +802,7 @@ export function useTVDetailPage() {
     episodeFormError.value = "";
     try {
       const resp = await updateTVSeasonLocal(tvId.value, selectedSeasonNumber.value, payload);
+      clearTVCache(tvId.value);
       selectedSeasonPayload.value = toPlainRecord(resp.data?.data);
       selectedSeasonDetail.value = normalizeSeasonDetail(selectedSeasonPayload.value, selectedSeasonNumber.value);
       seasonLocalSaved.value = true;
@@ -820,6 +824,7 @@ export function useTVDetailPage() {
     seasonDetailError.value = "";
     try {
       const resp = await saveTVSeasonLocal(tvId.value, selectedSeasonNumber.value);
+      clearTVCache(tvId.value);
       selectedSeasonPayload.value = toPlainRecord(resp.data?.data);
       selectedSeasonDetail.value = normalizeSeasonDetail(selectedSeasonPayload.value, selectedSeasonNumber.value);
       seasonLocalSaved.value = true;
@@ -911,6 +916,7 @@ export function useTVDetailPage() {
     episodeFormError.value = "";
     try {
       const resp = await updateTVSeasonLocal(tvId.value, selectedSeasonNumber.value, payload);
+      clearTVCache(tvId.value);
       selectedSeasonPayload.value = toPlainRecord(resp.data?.data);
       selectedSeasonDetail.value = normalizeSeasonDetail(selectedSeasonPayload.value, selectedSeasonNumber.value);
       seasonLocalSaved.value = true;
@@ -966,6 +972,7 @@ export function useTVDetailPage() {
     episodeFormError.value = "";
     try {
       const resp = await updateTVSeasonLocal(tvId.value, selectedSeasonNumber.value, payload);
+      clearTVCache(tvId.value);
       selectedSeasonPayload.value = toPlainRecord(resp.data?.data);
       selectedSeasonDetail.value = normalizeSeasonDetail(selectedSeasonPayload.value, selectedSeasonNumber.value);
       seasonLocalSaved.value = true;
@@ -1006,7 +1013,8 @@ export function useTVDetailPage() {
       }
 
       try {
-        const localResp = await getTVSeasonLocal(tvId.value, seasonNumber);
+        // 本地季数据为辅助读取：失败静默并降级 TMDB
+        const localResp = await getTVSeasonLocal(tvId.value, seasonNumber, { showErrorToast: false });
         if (requestSeq !== seasonDetailReqSeq) {
           return;
         }
@@ -1019,19 +1027,22 @@ export function useTVDetailPage() {
         // 本地查询失败时，降级走 TMDB 季详情接口
       }
 
-      const resp = await getTVSeasonDetail(tvId.value, seasonNumber);
+      // 季详情辅助加载：静默失败，由 seasonDetailError/局部状态处理
+      const resp = await getTVSeasonDetail(tvId.value, seasonNumber, "zh-CN", "", { showErrorToast: false });
       if (requestSeq !== seasonDetailReqSeq) {
         return;
       }
       cacheSeasonDetail(seasonNumber, toPlainRecord(resp.data), false);
       applyCachedSeasonDetail(seasonNumber, seasonDetailCache.get(seasonNumber)!);
-    } catch {
+      seasonDetailError.value = "";
+    } catch (err) {
       if (requestSeq !== seasonDetailReqSeq) {
         return;
       }
       selectedSeasonPayload.value = null;
       selectedSeasonDetail.value = null;
       seasonLocalSaved.value = false;
+      seasonDetailError.value = resolveErrorMessage(err, "季详情加载失败，请重试");
     } finally {
       if (requestSeq === seasonDetailReqSeq) {
         seasonDetailLoading.value = false;
@@ -1056,14 +1067,19 @@ export function useTVDetailPage() {
     creditsLoading.value = true;
     creditsError.value = "";
     try {
-      const resp = await getTVCredits(targetId, "zh-CN", { force });
+      // 演员为辅助资源：静默失败，由区域状态处理
+      const resp = await getTVCredits(targetId, "zh-CN", { force, showErrorToast: false });
       if (requestSeq !== creditsReqSeq || targetId !== tvId.value) {
         return;
       }
       castMembers.value = normalizeCastMembers(resp.data);
       creditsLoaded.value = true;
-    } catch {
-      // errors shown via global toast
+      creditsError.value = "";
+    } catch (err) {
+      if (requestSeq !== creditsReqSeq || targetId !== tvId.value) {
+        return;
+      }
+      creditsError.value = resolveErrorMessage(err, "演员加载失败，请重试");
     } finally {
       if (requestSeq === creditsReqSeq) {
         creditsLoading.value = false;
@@ -1076,7 +1092,8 @@ export function useTVDetailPage() {
       return;
     }
     try {
-      const resp = await getTVGenreList();
+      // 类型列表为编辑辅助资源，失败静默并降级
+      const resp = await getTVGenreList("zh-CN", { showErrorToast: false });
       const options = normalizeGenreOptions(resp.data?.genres);
       if (options.length > 0) {
         genreOptions.value = options;
@@ -1134,7 +1151,9 @@ export function useTVDetailPage() {
     deleteError.value = "";
     try {
       deleteConfirmModalVisible.value = false;
-      await deleteTV(tvId.value);
+      const deletedId = tvId.value;
+      await deleteTV(deletedId);
+      clearTVCache(deletedId);
       await router.push({
         path: "/library",
         query: { tab: "tv" },
@@ -1163,7 +1182,8 @@ export function useTVDetailPage() {
     checkingRemoteDiff.value = true;
     remoteDiffError.value = "";
     try {
-      const resp = await compareTVRemote(tvId.value);
+      // 远程差异为辅助检查：静默失败，不打断详情浏览
+      const resp = await compareTVRemote(tvId.value, { showErrorToast: false });
       const remoteFields = Array.isArray(resp.data?.diff_fields) ? resp.data.diff_fields : [];
       const localOverrideFields = Array.isArray(resp.data?.local_override_diff_fields)
         ? resp.data.local_override_diff_fields
@@ -1227,6 +1247,9 @@ export function useTVDetailPage() {
 
   function handleSynced() {
     comparedRemoteId.value = null;
+    if (tvId.value) {
+      clearTVCache(tvId.value);
+    }
     void loadData({ force: true });
   }
 
@@ -1234,6 +1257,7 @@ export function useTVDetailPage() {
     const { force = false, checkRemoteDiff = true } = options;
     if (!tvId.value) {
       error.value = "无效剧集 ID";
+      refreshError.value = "";
       currentDetailId = 0;
       seasonDetailCache.clear();
       clearSelectedSeasonState();
@@ -1246,13 +1270,22 @@ export function useTVDetailPage() {
       clearSelectedSeasonState();
     }
     const requestSeq = ++loadReqSeq;
+    // 仅同 ID 详情视为“已有数据刷新”；切换路由 ID 按首载处理
+    const sameDetail =
+      !!detail.value && Number(detail.value.id ?? detail.value.sync_tmdb_id) === targetId;
+    if (!sameDetail) {
+      detail.value = null;
+    }
+    const hadDetail = sameDetail;
     stopDeferredLoads();
     loading.value = true;
     error.value = "";
+    refreshError.value = "";
     resetRemoteDiffState();
     resetCreditsState();
     try {
-      const resp = await getTVDetail(targetId, "zh-CN", "", { force });
+      // 详情首载/刷新静默，失败由页面区域状态处理
+      const resp = await getTVDetail(targetId, "zh-CN", "", { force, showErrorToast: false });
       if (requestSeq !== loadReqSeq) {
         return;
       }
@@ -1262,6 +1295,8 @@ export function useTVDetailPage() {
       genreOptionsLoaded.value = false;
       genreKeyword.value = "";
       isEditing.value = false;
+      error.value = "";
+      refreshError.value = "";
       const seasons = normalizeSeasonList(resp.data?.seasons);
       if (selectedSeasonNumber.value != null) {
         if (seasons.some((item) => item.season_number === selectedSeasonNumber.value)) {
@@ -1277,9 +1312,19 @@ export function useTVDetailPage() {
         await checkRemoteDiffAndPrompt();
       }
       scheduleDeferredLoadsForDetail();
-    } catch {
-      if (requestSeq === loadReqSeq) {
+    } catch (err) {
+      if (requestSeq !== loadReqSeq) {
+        return;
+      }
+      const message = resolveErrorMessage(err, "请求失败，请重试");
+      if (hadDetail) {
+        refreshError.value = message;
+        error.value = "";
+      } else {
+        detail.value = null;
         clearSelectedSeasonState();
+        error.value = message;
+        refreshError.value = "";
       }
     } finally {
       if (requestSeq === loadReqSeq) {
@@ -1410,7 +1455,12 @@ export function useTVDetailPage() {
         payload.tmdb_id = nextTmdbID;
       }
 
-      await updateTV(tvId.value, payload);
+      const currentId = tvId.value;
+      await updateTV(currentId, payload);
+      clearTVCache(currentId);
+      if (tmdbChanged && nextTmdbID !== undefined) {
+        clearTVCache(nextTmdbID);
+      }
       saveMessage.value = "已保存到本地数据库";
       isEditing.value = false;
       comparedRemoteId.value = null;
@@ -1440,10 +1490,13 @@ export function useTVDetailPage() {
 
   return {
     loading,
+    error,
+    refreshError,
     detail,
     castMembers,
     creditsLoading,
     creditsLoaded,
+    creditsError,
     isEditing,
     saving,
     deleting,
@@ -1465,6 +1518,7 @@ export function useTVDetailPage() {
     selectedSeasonNumber,
     selectedSeasonDetail,
     seasonDetailLoading,
+    seasonDetailError,
     seasonLocalSaved,
     seasonLocalSaving,
     seasonLocalMessage,
@@ -1490,7 +1544,6 @@ export function useTVDetailPage() {
     allowedSyncModes,
     goBack,
     personLink,
-    prefetchPerson,
     updateGenreKeyword,
     toggleRemoteDiffDetails,
     toggleLocalOverrideDiffDetails,
@@ -1523,6 +1576,8 @@ export function useTVDetailPage() {
     cancelEpisodeEdit,
     deleteEpisode,
     loadTVCredits,
+    loadSeasonDetail,
+    loadData,
     confirmDeleteCurrentTV,
   };
 }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import GlassSelect from "@/components/GlassSelect.vue";
+import LoadState from "@/components/common/LoadState.vue";
 import ToastNotice from "@/components/common/ToastNotice.vue";
 import {
   getAutoSyncLogs,
@@ -13,9 +14,15 @@ import {
   type AdminAutoSyncMode,
 } from "@/api/admin";
 import { useToastNotice } from "@/composables/useToastNotice";
+import { resolveErrorMessage } from "@/utils/errors";
 
 const loading = ref(false);
+const settingsLoaded = ref(false);
+const loadError = ref("");
+const refreshError = ref("");
+const logsError = ref("");
 const appVersion = __APP_VERSION__;
+const initialLoading = computed(() => loading.value && !settingsLoaded.value);
 
 const proxySaving = ref(false);
 const proxyEnabled = ref(false);
@@ -120,23 +127,34 @@ function formatDuration(durationMs: number) {
 
 async function loadAutoSyncLogs() {
   logsLoading.value = true;
+  logsError.value = "";
 
   try {
-    const resp = await getAutoSyncLogs({ page: 1, page_size: 1 });
+    // 辅助读取：静默失败，保留当前最近执行记录并展示局部重试
+    const resp = await getAutoSyncLogs({ page: 1, page_size: 1 }, { showErrorToast: false });
     const data = resp.data;
     logsItems.value = Array.isArray(data.results) ? data.results : [];
-  } catch {
-    // 错误已由全局请求拦截器提示，这里保留当前最近执行记录。
+    logsError.value = "";
+  } catch (error) {
+    logsError.value = resolveErrorMessage(error, "最近执行记录读取失败");
   } finally {
     logsLoading.value = false;
   }
 }
 
 async function loadSettings() {
+  const hadData = settingsLoaded.value;
   loading.value = true;
+  loadError.value = "";
+  refreshError.value = "";
 
   try {
-    const [proxyResp, autoSyncResp] = await Promise.all([getProxySettings(), getAutoSyncSettings()]);
+    // 设置首读/重读静默，失败由页面区域状态处理；保存仍走默认 Toast
+    const silent = { showErrorToast: false as const };
+    const [proxyResp, autoSyncResp] = await Promise.all([
+      getProxySettings(silent),
+      getAutoSyncSettings(silent),
+    ]);
     const proxyData = proxyResp.data;
     proxyEnabled.value = !!proxyData.enabled;
     proxyURL.value = proxyData.proxy_url ?? "";
@@ -151,8 +169,18 @@ async function loadSettings() {
     syncBatchSize.value = normalizeNumber(Number(syncData.batch_size), 1, 500);
     syncStartDelaySecond.value = normalizeNumber(Number(syncData.start_delay_second), 0, 3600);
     syncRunning.value = !!syncData.running;
-  } catch {
-    // errors shown via global toast
+    settingsLoaded.value = true;
+    loadError.value = "";
+    refreshError.value = "";
+  } catch (error) {
+    const message = resolveErrorMessage(error, "请求失败，请重试");
+    if (hadData) {
+      refreshError.value = message;
+      loadError.value = "";
+    } else {
+      loadError.value = message;
+      refreshError.value = "";
+    }
   } finally {
     loading.value = false;
   }
@@ -257,38 +285,64 @@ onMounted(reloadAll);
       </div>
     </section>
 
-    <section class="settings-summary-grid">
-      <article class="settings-summary-card">
-        <span class="settings-summary-label">代理访问</span>
-        <strong>{{ proxyStatusText }}</strong>
-        <p>
-          {{ proxyEnabled ? proxyURL || "已启用，等待代理地址" : "后端直连 TMDB" }} · {{ proxyLocalWriteStatusText }} ·
-          {{ proxyTimeoutStatusText }}
-        </p>
-      </article>
-      <article class="settings-summary-card">
-        <span class="settings-summary-label">自动同步</span>
-        <strong>{{ syncStatusText }}</strong>
-        <p>{{ syncEnabled ? `${syncCronExpr} · ${formatMode(syncMode)}` : "不会自动调度同步任务" }}</p>
-      </article>
-      <article class="settings-summary-card">
-        <span class="settings-summary-label">任务状态</span>
-        <strong>{{ taskRunStatusText }}</strong>
-        <p>批大小 {{ syncBatchSize }} · 启动延迟 {{ syncStartDelaySecond }} 秒</p>
-      </article>
-      <article class="settings-summary-card">
-        <span class="settings-summary-label">最近执行</span>
-        <strong>{{ latestLogStatusText }}</strong>
-        <p>{{ latestLogTimeText }}</p>
-      </article>
-      <article class="settings-summary-card">
-        <span class="settings-summary-label">当前版本</span>
-        <strong>v{{ appVersion || "-" }}</strong>
-        <p>前端构建版本</p>
-      </article>
-    </section>
+    <div
+      v-if="refreshError && !loadError"
+      class="logs-refresh-error"
+      role="status"
+      aria-live="polite"
+    >
+      <span>刷新失败：{{ refreshError }}</span>
+      <button type="button" class="btn-soft-xs" :disabled="settingsBusy" @click="reloadAll">重试</button>
+    </div>
 
-    <section class="settings-form-grid">
+    <div
+      v-if="logsError"
+      class="logs-refresh-error"
+      role="status"
+      aria-live="polite"
+    >
+      <span>{{ logsError }}</span>
+      <button type="button" class="btn-soft-xs" :disabled="logsLoading" @click="loadAutoSyncLogs">重试</button>
+    </div>
+
+    <LoadState
+      :loading="initialLoading"
+      :error="loadError"
+      loading-text="系统设置加载中..."
+      @retry="reloadAll"
+    >
+      <section class="settings-summary-grid">
+        <article class="settings-summary-card">
+          <span class="settings-summary-label">代理访问</span>
+          <strong>{{ proxyStatusText }}</strong>
+          <p>
+            {{ proxyEnabled ? proxyURL || "已启用，等待代理地址" : "后端直连 TMDB" }} · {{ proxyLocalWriteStatusText }} ·
+            {{ proxyTimeoutStatusText }}
+          </p>
+        </article>
+        <article class="settings-summary-card">
+          <span class="settings-summary-label">自动同步</span>
+          <strong>{{ syncStatusText }}</strong>
+          <p>{{ syncEnabled ? `${syncCronExpr} · ${formatMode(syncMode)}` : "不会自动调度同步任务" }}</p>
+        </article>
+        <article class="settings-summary-card">
+          <span class="settings-summary-label">任务状态</span>
+          <strong>{{ taskRunStatusText }}</strong>
+          <p>批大小 {{ syncBatchSize }} · 启动延迟 {{ syncStartDelaySecond }} 秒</p>
+        </article>
+        <article class="settings-summary-card">
+          <span class="settings-summary-label">最近执行</span>
+          <strong>{{ latestLogStatusText }}</strong>
+          <p>{{ latestLogTimeText }}</p>
+        </article>
+        <article class="settings-summary-card">
+          <span class="settings-summary-label">当前版本</span>
+          <strong>v{{ appVersion || "-" }}</strong>
+          <p>前端构建版本</p>
+        </article>
+      </section>
+
+      <section class="settings-form-grid">
       <div class="card settings-card">
         <div class="settings-panel-header">
           <div>
@@ -430,7 +484,8 @@ onMounted(reloadAll);
           </button>
         </div>
       </div>
-    </section>
+      </section>
+    </LoadState>
 
     <ToastNotice :visible="toastVisible" :message="toastText" :tone="toastTone" @close="closeToastNotice" />
   </section>

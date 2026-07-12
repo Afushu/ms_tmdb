@@ -156,6 +156,8 @@ onBeforeUnmount(() => {
       />
 
       <main
+        id="admin-main"
+        tabindex="-1"
         class="page-shell admin-content"
         :class="{ 'admin-content-compact': preferences.compact, 'admin-content-fixed': isLogsPage }"
       >

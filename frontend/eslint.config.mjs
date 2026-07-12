@@ -25,6 +25,7 @@ export default tseslint.config(
         Event: "readonly",
         HTMLElement: "readonly",
         HTMLInputElement: "readonly",
+        HTMLSelectElement: "readonly",
         KeyboardEvent: "readonly",
         MouseEvent: "readonly",
         Node: "readonly",
@@ -38,7 +39,6 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "warn",
       "vue/multi-word-component-names": "off",
       "vue/no-mutating-props": "off",
-      "vue/no-v-html": "off",
     },
   },
 );

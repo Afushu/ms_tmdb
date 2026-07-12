@@ -1,4 +1,4 @@
-import http from "./http";
+import http, { type RequestOptions } from "./http";
 import type { MediaSummary } from "@/types/media";
 
 export type AdminSyncMode = "overwrite_all" | "update_unmodified" | "selective" | "preview";
@@ -341,21 +341,22 @@ export function syncPerson(id: number, payload: AdminSyncPayload = {}) {
   return http.post<AdminSyncResp>(`/api/admin/sync/person/${id}`, payload);
 }
 
-export function compareMovieRemote(id: number) {
-  return http.get<AdminCompareResp>(`/api/admin/compare/movie/${id}`);
+export function compareMovieRemote(id: number, options?: RequestOptions) {
+  return http.get<AdminCompareResp>(`/api/admin/compare/movie/${id}`, { ...options });
 }
 
-export function compareTVRemote(id: number) {
-  return http.get<AdminCompareResp>(`/api/admin/compare/tv/${id}`);
+export function compareTVRemote(id: number, options?: RequestOptions) {
+  return http.get<AdminCompareResp>(`/api/admin/compare/tv/${id}`, { ...options });
 }
 
-export function comparePersonRemote(id: number) {
-  return http.get<AdminCompareResp>(`/api/admin/compare/person/${id}`);
+export function comparePersonRemote(id: number, options?: RequestOptions) {
+  return http.get<AdminCompareResp>(`/api/admin/compare/person/${id}`, { ...options });
 }
 
-export function getHomeDashboard(limit?: number) {
+export function getHomeDashboard(limit?: number, options?: RequestOptions) {
   return http.get<AdminHomeResp>("/api/admin/home", {
     params: typeof limit === "number" ? { limit } : undefined,
+    ...options,
   });
 }
 
@@ -375,15 +376,29 @@ export function updateTV(id: number, payload: Record<string, unknown>) {
   return http.put(`/api/admin/tv/${id}`, payload);
 }
 
-export function listMovies(page = 1, pageSize = 20, keyword = "", searchMode = "contains") {
+export function listMovies(
+  page = 1,
+  pageSize = 20,
+  keyword = "",
+  searchMode = "contains",
+  options?: RequestOptions,
+) {
   return http.get<AdminListResp<AdminMovieListItem>>("/api/admin/movies", {
     params: { page, page_size: pageSize, keyword, search_mode: searchMode },
+    ...options,
   });
 }
 
-export function listTV(page = 1, pageSize = 20, keyword = "", searchMode = "contains") {
+export function listTV(
+  page = 1,
+  pageSize = 20,
+  keyword = "",
+  searchMode = "contains",
+  options?: RequestOptions,
+) {
   return http.get<AdminListResp<AdminTVListItem>>("/api/admin/tv-series", {
     params: { page, page_size: pageSize, keyword, search_mode: searchMode },
+    ...options,
   });
 }
 
@@ -395,8 +410,10 @@ export function deleteTV(id: number) {
   return http.delete(`/api/admin/tv/${id}`);
 }
 
-export function getTVSeasonLocal(id: number, seasonNumber: number) {
-  return http.get<AdminTVSeasonLocalResp>(`/api/admin/tv/${id}/season/${seasonNumber}/local`);
+export function getTVSeasonLocal(id: number, seasonNumber: number, options?: RequestOptions) {
+  return http.get<AdminTVSeasonLocalResp>(`/api/admin/tv/${id}/season/${seasonNumber}/local`, {
+    ...options,
+  });
 }
 
 export function saveTVSeasonLocal(id: number, seasonNumber: number, language = "zh-CN") {
@@ -413,16 +430,16 @@ export function deleteTVSeasonLocal(id: number, seasonNumber: number) {
   return http.delete<AdminTVSeasonLocalResp>(`/api/admin/tv/${id}/season/${seasonNumber}/local`);
 }
 
-export function getProxySettings() {
-  return http.get<AdminProxyResp>("/api/admin/proxy");
+export function getProxySettings(options?: RequestOptions) {
+  return http.get<AdminProxyResp>("/api/admin/proxy", { ...options });
 }
 
 export function updateProxySettings(payload: AdminProxyPayload) {
   return http.put<AdminProxyResp>("/api/admin/proxy", payload);
 }
 
-export function getAutoSyncSettings() {
-  return http.get<AdminAutoSyncResp>("/api/admin/auto-sync");
+export function getAutoSyncSettings(options?: RequestOptions) {
+  return http.get<AdminAutoSyncResp>("/api/admin/auto-sync", { ...options });
 }
 
 export function updateAutoSyncSettings(payload: AdminAutoSyncPayload) {
@@ -433,36 +450,52 @@ export function runAutoSyncNow() {
   return http.post<AdminAutoSyncRunResp>("/api/admin/auto-sync/run");
 }
 
-export function getAutoSyncLogs(params: AdminAutoSyncLogListParams = {}) {
-  return http.get<AdminAutoSyncLogListResp>("/api/admin/auto-sync/logs", { params });
+export function getAutoSyncLogs(params: AdminAutoSyncLogListParams = {}, options?: RequestOptions) {
+  return http.get<AdminAutoSyncLogListResp>("/api/admin/auto-sync/logs", {
+    params,
+    ...options,
+  });
 }
 
-export function getAutoSyncLogDetail(id: number, params: AdminAutoSyncLogDetailParams = {}) {
-  return http.get<AdminAutoSyncLogDetailResp>(`/api/admin/auto-sync/logs/${id}`, { params });
+export function getAutoSyncLogDetail(
+  id: number,
+  params: AdminAutoSyncLogDetailParams = {},
+  options?: RequestOptions,
+) {
+  return http.get<AdminAutoSyncLogDetailResp>(`/api/admin/auto-sync/logs/${id}`, {
+    params,
+    ...options,
+  });
 }
 
 export function clearAutoSyncLogs() {
   return http.delete<AdminAutoSyncLogClearResp>("/api/admin/auto-sync/logs");
 }
 
-export function getProxyAccessLogs(params: AdminRequestLogListParams = {}) {
-  return http.get<AdminProxyAccessLogListResp>("/api/admin/logs/access", { params });
+export function getProxyAccessLogs(params: AdminRequestLogListParams = {}, options?: RequestOptions) {
+  return http.get<AdminProxyAccessLogListResp>("/api/admin/logs/access", {
+    params,
+    ...options,
+  });
 }
 
-export function getProxyAccessLogDetail(id: number) {
-  return http.get<AdminProxyAccessLogDetailResp>(`/api/admin/logs/access/${id}`);
+export function getProxyAccessLogDetail(id: number, options?: RequestOptions) {
+  return http.get<AdminProxyAccessLogDetailResp>(`/api/admin/logs/access/${id}`, { ...options });
 }
 
 export function clearProxyAccessLogs() {
   return http.delete<AdminRequestLogClearResp>("/api/admin/logs/access");
 }
 
-export function getTmdbRequestLogs(params: AdminRequestLogListParams = {}) {
-  return http.get<AdminTmdbRequestLogListResp>("/api/admin/logs/tmdb", { params });
+export function getTmdbRequestLogs(params: AdminRequestLogListParams = {}, options?: RequestOptions) {
+  return http.get<AdminTmdbRequestLogListResp>("/api/admin/logs/tmdb", {
+    params,
+    ...options,
+  });
 }
 
-export function getTmdbRequestLogDetail(id: number) {
-  return http.get<AdminTmdbRequestLogDetailResp>(`/api/admin/logs/tmdb/${id}`);
+export function getTmdbRequestLogDetail(id: number, options?: RequestOptions) {
+  return http.get<AdminTmdbRequestLogDetailResp>(`/api/admin/logs/tmdb/${id}`, { ...options });
 }
 
 export function clearTmdbRequestLogs() {

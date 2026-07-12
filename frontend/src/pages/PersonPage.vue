@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { prefetchMediaDetail } from "@/api/prefetch";
+import { cancelPrefetch, prefetchMediaDetail, schedulePrefetch } from "@/api/prefetch";
 import { useRoute, useRouter } from "vue-router";
 import { getPersonCombinedCredits, getPersonDetail, getPersonImages } from "@/api/person";
 import { profileImg, tmdbImg } from "@/api/tmdb";
+import LoadState from "@/components/common/LoadState.vue";
+import { resolveErrorMessage } from "@/utils/errors";
 import { scheduleAfterPaint } from "@/utils/schedule";
 
 type PersonCreditItem = {
@@ -38,13 +40,17 @@ function toRecord(value: unknown): Record<string, unknown> {
 const route = useRoute();
 const router = useRouter();
 const loading = ref(false);
+const loadError = ref("");
+const refreshError = ref("");
 const detail = ref<PersonDetail | null>(null);
 const topCreditItems = ref<PersonCreditItem[]>([]);
 const photoProfiles = ref<PersonImageItem[]>([]);
 const creditsLoading = ref(false);
 const creditsLoaded = ref(false);
+const creditsError = ref("");
 const photosLoading = ref(false);
 const photosLoaded = ref(false);
+const photosError = ref("");
 let detailReqSeq = 0;
 let creditsReqSeq = 0;
 let photosReqSeq = 0;
@@ -94,8 +100,10 @@ function resetAuxState() {
   photoProfiles.value = [];
   creditsLoading.value = false;
   creditsLoaded.value = false;
+  creditsError.value = "";
   photosLoading.value = false;
   photosLoaded.value = false;
+  photosError.value = "";
 }
 
 function normalizeCreditItems(raw: unknown): PersonCreditItem[] {
@@ -130,9 +138,20 @@ function normalizeImageItems(raw: unknown): PersonImageItem[] {
     .filter((item) => item.file_path);
 }
 
-function prefetchCreditItem(item: PersonCreditItem) {
-  const mediaType = item.media_type === "tv" ? "tv" : "movie";
-  prefetchMediaDetail(mediaType, item.id);
+function creditMediaType(item: PersonCreditItem): "movie" | "tv" {
+  return item.media_type === "tv" ? "tv" : "movie";
+}
+
+function scheduleCreditItem(item: PersonCreditItem) {
+  schedulePrefetch(creditMediaType(item), item.id);
+}
+
+function cancelCreditItem(item: PersonCreditItem) {
+  cancelPrefetch(creditMediaType(item), item.id);
+}
+
+function touchCreditItem(item: PersonCreditItem) {
+  prefetchMediaDetail(creditMediaType(item), item.id);
 }
 
 function scheduleDeferredLoadsForDetail() {
@@ -151,17 +170,21 @@ async function loadPersonCombinedCredits(force = false) {
   const requestSeq = ++creditsReqSeq;
   const targetId = personId.value;
   creditsLoading.value = true;
+  creditsError.value = "";
   try {
-    const resp = await getPersonCombinedCredits(targetId, "zh-CN", { force });
+    // 作品列表为辅助资源：静默失败，区域可重试
+    const resp = await getPersonCombinedCredits(targetId, "zh-CN", { force, showErrorToast: false });
     if (requestSeq !== creditsReqSeq || targetId !== personId.value) {
       return;
     }
     topCreditItems.value = normalizeCreditItems(resp.data);
     creditsLoaded.value = true;
-  } catch {
+    creditsError.value = "";
+  } catch (error) {
     if (requestSeq !== creditsReqSeq || targetId !== personId.value) {
       return;
     }
+    creditsError.value = resolveErrorMessage(error, "作品加载失败，请重试");
   } finally {
     if (requestSeq === creditsReqSeq) {
       creditsLoading.value = false;
@@ -177,17 +200,21 @@ async function loadPersonImages(force = false) {
   const requestSeq = ++photosReqSeq;
   const targetId = personId.value;
   photosLoading.value = true;
+  photosError.value = "";
   try {
-    const resp = await getPersonImages(targetId, { force });
+    // 图片为辅助资源：静默失败，区域可重试
+    const resp = await getPersonImages(targetId, { force, showErrorToast: false });
     if (requestSeq !== photosReqSeq || targetId !== personId.value) {
       return;
     }
     photoProfiles.value = normalizeImageItems(resp.data).slice(0, 6);
     photosLoaded.value = true;
-  } catch {
+    photosError.value = "";
+  } catch (error) {
     if (requestSeq !== photosReqSeq || targetId !== personId.value) {
       return;
     }
+    photosError.value = resolveErrorMessage(error, "照片加载失败，请重试");
   } finally {
     if (requestSeq === photosReqSeq) {
       photosLoading.value = false;
@@ -201,18 +228,36 @@ async function loadData() {
   }
 
   const requestSeq = ++detailReqSeq;
+  // 仅同一次详情会话内的刷新保留旧内容；切换 personId 会先清空 detail
+  const hadDetail = !!detail.value;
   stopDeferredLoads();
   loading.value = true;
+  loadError.value = "";
+  refreshError.value = "";
   resetAuxState();
   try {
-    const resp = await getPersonDetail(personId.value);
+    // 详情首载静默，失败由页面区域状态处理
+    const resp = await getPersonDetail(personId.value, "zh-CN", "", { showErrorToast: false });
     if (requestSeq !== detailReqSeq) {
       return;
     }
     detail.value = resp.data;
+    loadError.value = "";
+    refreshError.value = "";
     scheduleDeferredLoadsForDetail();
-  } catch {
-    // 错误已由全局请求拦截器提示，这里只恢复详情加载状态。
+  } catch (error) {
+    if (requestSeq !== detailReqSeq) {
+      return;
+    }
+    const message = resolveErrorMessage(error, "请求失败，请重试");
+    if (hadDetail) {
+      refreshError.value = message;
+      loadError.value = "";
+    } else {
+      detail.value = null;
+      loadError.value = message;
+      refreshError.value = "";
+    }
   } finally {
     if (requestSeq === detailReqSeq) {
       loading.value = false;
@@ -222,6 +267,9 @@ async function loadData() {
 
 onMounted(loadData);
 watch(personId, () => {
+  detail.value = null;
+  loadError.value = "";
+  refreshError.value = "";
   void loadData();
 });
 
@@ -234,9 +282,25 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <p v-if="loading" class="card text-sm text-black/60">加载中...</p>
+  <LoadState
+    v-if="!detail"
+    class="card"
+    :loading="loading"
+    :error="loadError"
+    loading-text="人物详情加载中..."
+    @retry="loadData"
+  />
 
-  <template v-else-if="detail">
+  <template v-else>
+    <div
+      v-if="refreshError"
+      class="logs-refresh-error mb-4"
+      role="status"
+      aria-live="polite"
+    >
+      <span>刷新失败：{{ refreshError }}</span>
+      <button type="button" class="btn-soft-xs" :disabled="loading" @click="loadData">重试</button>
+    </div>
     <section class="card">
       <div class="mb-4">
         <button class="btn-soft-xs px-3 py-1.5" @click="goBack">返回上一页</button>
@@ -274,6 +338,17 @@ onBeforeUnmount(() => {
               </button>
             </div>
             <p v-if="photosLoading" class="text-xs text-black/55">正在加载照片...</p>
+            <div
+              v-else-if="photosError"
+              class="logs-refresh-error"
+              role="status"
+              aria-live="polite"
+            >
+              <span>{{ photosError }}</span>
+              <button type="button" class="btn-soft-xs" :disabled="photosLoading" @click="loadPersonImages(true)">
+                重试
+              </button>
+            </div>
             <p v-else-if="photosLoaded && !photoProfiles.length" class="text-xs text-black/55">暂无照片数据</p>
             <div v-else-if="photoProfiles.length" class="person-photo-strip">
               <img
@@ -299,14 +374,32 @@ onBeforeUnmount(() => {
               </button>
             </div>
             <p v-if="creditsLoading" class="text-xs text-black/55">正在加载代表作品...</p>
+            <div
+              v-else-if="creditsError"
+              class="logs-refresh-error"
+              role="status"
+              aria-live="polite"
+            >
+              <span>{{ creditsError }}</span>
+              <button
+                type="button"
+                class="btn-soft-xs"
+                :disabled="creditsLoading"
+                @click="loadPersonCombinedCredits(true)"
+              >
+                重试
+              </button>
+            </div>
             <p v-else-if="creditsLoaded && !topCredits.length" class="text-xs text-black/55">暂无代表作品数据</p>
             <div v-else-if="topCredits.length" class="cast-grid">
               <div v-for="c in topCredits" :key="c.id + (c.media_type || '')" class="cast-card">
                 <RouterLink
                   :to="`/${c.media_type === 'tv' ? 'tv' : 'movie'}/${c.id}`"
-                  @mouseenter="prefetchCreditItem(c)"
-                  @focus="prefetchCreditItem(c)"
-                  @touchstart.passive="prefetchCreditItem(c)"
+                  @pointerenter="scheduleCreditItem(c)"
+                  @pointerleave="cancelCreditItem(c)"
+                  @focus="scheduleCreditItem(c)"
+                  @blur="cancelCreditItem(c)"
+                  @touchstart.passive="touchCreditItem(c)"
                 >
                   <img :src="tmdbImg(c.poster_path, 'w185')" :alt="c.title || c.name" class="cast-img" loading="lazy" />
                 </RouterLink>

@@ -1,4 +1,4 @@
-import http from "./http";
+import http, { type RequestOptions } from "./http";
 import type { SearchResultItem } from "@/types/media";
 
 export type SearchType = "movie" | "tv" | "person" | "multi";
@@ -10,8 +10,15 @@ type SearchResp = {
   results: SearchResultItem[];
 };
 
-export function searchByType(type: SearchType, query: string, page = 1, language = "zh-CN") {
+export function searchByType(
+  type: SearchType,
+  query: string,
+  page = 1,
+  language = "zh-CN",
+  options?: RequestOptions,
+) {
   return http.get<SearchResp>(`/api/v3/search/${type}`, {
     params: { query, page, language },
+    ...options,
   });
 }

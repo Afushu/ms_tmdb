@@ -1,5 +1,15 @@
-import axios from "axios";
+import axios, { type AxiosRequestConfig } from "axios";
 import { showGlobalToast } from "@/composables/useGlobalToast";
+
+declare module "axios" {
+  interface AxiosRequestConfig {
+    /** 是否展示全局错误 Toast；默认 true（`!== false` 时展示） */
+    showErrorToast?: boolean;
+  }
+}
+
+/** 读取 API 可选请求配置，经 API 层透传给 Axios */
+export type RequestOptions = Pick<AxiosRequestConfig, "showErrorToast">;
 
 /** 将 HTTP 错误映射为用户友好的中文提示 */
 function friendlyMessage(status?: number, raw?: string): string {
@@ -55,8 +65,10 @@ http.interceptors.response.use(
     const status: number | undefined = error?.response?.status;
     const msg = backendMessage(data) || friendlyMessage(status, error?.message || "");
 
-    // 全局居中 toast 提示
-    showGlobalToast(msg, "error");
+    // 默认展示全局 Toast；显式 showErrorToast: false 时静默，由页面构建区域失败态
+    if (error?.config?.showErrorToast !== false) {
+      showGlobalToast(msg, "error");
+    }
 
     return Promise.reject(new Error(msg));
   },

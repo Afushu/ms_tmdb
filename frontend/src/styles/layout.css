@@ -242,7 +242,7 @@
   border-radius: 8px;
   border: 0;
   background: transparent;
-  color: #1f2329;
+  color: var(--control-text);
   cursor: pointer;
   transition:
     background-color 0.16s ease,
@@ -250,7 +250,7 @@
 }
 
 .admin-icon-btn:hover {
-  background: #f2f3f5;
+  background: var(--control-hover-bg);
   color: var(--accent);
 }
 
@@ -303,7 +303,7 @@
   border: 0;
   background: transparent;
   box-shadow: none;
-  color: #4e5969;
+  color: var(--text-secondary);
   font-size: 15px;
   font-weight: 500;
   line-height: 1;
@@ -316,7 +316,7 @@
 }
 
 .admin-breadcrumb-separator {
-  color: #8a8f99;
+  color: var(--text-secondary);
   font-size: 24px;
   font-weight: 300;
   line-height: 1;
@@ -324,7 +324,7 @@
 
 .admin-breadcrumb-current {
   overflow: hidden;
-  color: #1f2329;
+  color: var(--text-strong);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -339,7 +339,7 @@
   overflow: hidden;
   border: 0;
   border-radius: 9999px;
-  background: #f2f3f5;
+  background: var(--control-bg);
   padding: 0 14px;
 }
 
@@ -352,14 +352,14 @@
   flex: 1;
   border: 0;
   background: transparent;
-  color: #1f2329;
+  color: var(--control-text);
   font-size: 14px;
   outline: none;
   padding: 0;
 }
 
 .admin-top-search-input::placeholder {
-  color: #8a8f99;
+  color: var(--text-secondary);
 }
 
 .admin-icon-search {
@@ -368,7 +368,7 @@
   width: 14px;
   height: 14px;
   flex: 0 0 auto;
-  border: 2px solid #8a8f99;
+  border: 2px solid var(--text-secondary);
   border-radius: 9999px;
 }
 
@@ -380,7 +380,7 @@
   width: 7px;
   height: 2px;
   border-radius: 9999px;
-  background: #8a8f99;
+  background: var(--text-secondary);
   transform: rotate(45deg);
 }
 
@@ -399,7 +399,7 @@
   border-radius: 8px;
   border: 0;
   background: transparent;
-  color: #1f2329;
+  color: var(--control-text);
   cursor: pointer;
   transition:
     background-color 0.16s ease,
@@ -407,7 +407,7 @@
 }
 
 .admin-preference-btn:hover {
-  background: #f2f3f5;
+  background: var(--control-hover-bg);
   color: var(--accent);
 }
 
@@ -429,7 +429,7 @@
   gap: 0;
   overflow-x: auto;
   border-bottom: 1px solid var(--border-muted);
-  background: #fff;
+  background: var(--surface-elevated);
   box-shadow: none;
   padding: 0 20px;
   scrollbar-width: none;
@@ -448,18 +448,18 @@
   border: 0;
   border-right: 1px solid var(--border-muted);
   background: transparent;
-  color: #1f2329;
+  color: var(--text-strong);
   transition:
     background-color 0.16s ease,
     color 0.16s ease;
 }
 
 .admin-tab:hover {
-  background: #f7f8fa;
+  background: var(--surface-hover);
 }
 
 .admin-tab-active {
-  background: #e6f4ff;
+  background: var(--surface-active);
   color: var(--accent);
   box-shadow: inset 0 -2px 0 var(--accent);
 }
@@ -517,7 +517,7 @@
 }
 
 .admin-tab-close:hover {
-  background: rgba(31, 35, 41, 0.08);
+  background: var(--surface-hover);
 }
 
 .admin-tab-close::before,
@@ -549,7 +549,7 @@
   padding: 4px;
   border-radius: 8px;
   border: 1px solid var(--border-muted);
-  background: #fff;
+  background: var(--menu-bg);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
 }
 
@@ -560,7 +560,7 @@
   border: 0;
   border-radius: 5px;
   background: transparent;
-  color: #344054;
+  color: var(--control-text);
   font-size: 13px;
   text-align: left;
   cursor: pointer;
@@ -568,12 +568,12 @@
 }
 
 .tab-context-item:hover {
-  background: #f2f4f7;
+  background: var(--menu-hover-bg);
 }
 
 .tab-context-divider {
   margin: 4px 8px;
-  border-top: 1px solid #e4e7ec;
+  border-top: 1px solid var(--border-muted);
 }
 
 .admin-content {
@@ -629,7 +629,7 @@
   inset: 0;
   z-index: 70;
   border: 0;
-  background: rgba(0, 0, 0, 0.42);
+  background: var(--overlay-bg);
 }
 
 .admin-preference-drawer {
@@ -641,7 +641,7 @@
   max-width: calc(100vw - 24px);
   flex-direction: column;
   border-left: 1px solid var(--border-muted);
-  background: #fff;
+  background: var(--surface-elevated);
   box-shadow: -10px 0 28px rgba(15, 23, 42, 0.14);
 }
 
@@ -657,7 +657,7 @@
 
 .admin-preference-header h2 {
   margin: 0;
-  color: #111827;
+  color: var(--text-strong);
   font-size: 16px;
   font-weight: 700;
 }
@@ -668,7 +668,7 @@
   height: 32px;
   border-radius: 6px;
   border: 1px solid var(--border-muted);
-  background: #fff;
+  background: var(--surface-elevated);
   cursor: pointer;
 }
 
@@ -681,7 +681,7 @@
   width: 14px;
   height: 1.5px;
   border-radius: 9999px;
-  background: #475467;
+  background: var(--text-secondary);
 }
 
 .admin-drawer-close::before {
@@ -708,14 +708,14 @@
 
 .admin-preference-section-title {
   margin: 0;
-  color: #111827;
+  color: var(--text-strong);
   font-size: 14px;
   font-weight: 650;
 }
 
 .admin-preference-label {
   margin: 0;
-  color: #667085;
+  color: var(--text-secondary);
   font-size: 12px;
 }
 
@@ -732,7 +732,7 @@
   height: 30px;
   place-items: center;
   border-radius: 6px;
-  border: 2px solid #fff;
+  border: 2px solid var(--surface-elevated);
   box-shadow:
     0 0 0 1px rgba(15, 23, 42, 0.16),
     inset 0 0 0 1px rgba(255, 255, 255, 0.38);
@@ -740,7 +740,7 @@
 }
 
 .admin-theme-swatch-active {
-  border-color: #fff;
+  border-color: var(--surface-elevated);
   box-shadow:
     0 0 0 2px var(--accent),
     0 0 0 5px var(--accent-ring),
@@ -776,9 +776,9 @@
   gap: 8px;
   border-radius: 6px;
   border: 1px solid var(--border-muted);
-  background: #fff;
+  background: var(--surface-elevated);
   padding: 0 10px;
-  color: #344054;
+  color: var(--control-text);
   cursor: pointer;
   font-size: 13px;
   transition:
@@ -795,7 +795,7 @@
 .admin-sidebar-control-btn-active {
   border-color: var(--accent-active-border);
   background: var(--accent-active-bg);
-  color: #111827;
+  color: var(--text-strong);
 }
 
 .admin-sidebar-control-preview {
@@ -814,7 +814,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  color: #344054;
+  color: var(--control-text);
   font-size: 14px;
 }
 
@@ -832,7 +832,7 @@
   flex: 0 0 auto;
   align-items: center;
   border-radius: 9999px;
-  background: #d0d5dd;
+  background: var(--control-bg);
   box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
   transition:
     background-color 0.16s ease,

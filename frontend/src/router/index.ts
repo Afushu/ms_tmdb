@@ -103,8 +103,15 @@ router.beforeEach(() => {
   return true;
 });
 
-router.afterEach(() => {
+const APP_TITLE = "媒体数据管理";
+
+router.afterEach((to, _from, failure) => {
   stopGlobalPageLoading();
+  if (failure != null) {
+    return;
+  }
+  const routeTitle = typeof to.meta.title === "string" ? to.meta.title.trim() : "";
+  document.title = routeTitle ? `${routeTitle} - ${APP_TITLE}` : APP_TITLE;
 });
 
 router.onError(() => {

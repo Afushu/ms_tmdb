@@ -7,6 +7,7 @@ defineProps<{
   selectedSeasonNumber: number | null;
   seasonLocalSaving: boolean;
   seasonDetailLoading: boolean;
+  seasonDetailError?: string;
   seasonPanelVisible: boolean;
   selectedSeasonDetail: TVSeasonDetail | null;
   selectedSeasonEpisodes: TVEpisodeItem[];
@@ -24,6 +25,7 @@ defineProps<{
   formatEpisodeRating: (voteAverage: number | null) => string;
   onOpenSeasonCreateEditor: () => void;
   onSelectSeason: (seasonNumber: number) => void;
+  onRetrySeasonDetail?: () => void;
   onOpenSeasonEditEditor: () => void;
   onOpenEpisodeCreateEditor: () => void;
   onSaveSeasonToLocal: () => void;
@@ -74,6 +76,23 @@ defineProps<{
   </div>
 
   <div v-if="seasonPanelVisible" class="panel-glass content-auto-heavy mt-4 rounded-xl p-4">
+    <div
+      v-if="seasonDetailError && !seasonDetailLoading && !selectedSeasonDetail"
+      class="logs-refresh-error mb-3"
+      role="status"
+      aria-live="polite"
+    >
+      <span>{{ seasonDetailError }}</span>
+      <button
+        v-if="onRetrySeasonDetail"
+        type="button"
+        class="btn-soft-xs"
+        :disabled="seasonDetailLoading"
+        @click="onRetrySeasonDetail"
+      >
+        重试
+      </button>
+    </div>
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h3 class="text-sm font-semibold">
         {{

@@ -1,3 +1,5 @@
+import type { AdminMovieListItem, AdminTVListItem } from "@/api/admin";
+
 export type MediaTab = "movie" | "tv";
 
 export type UploadingKey = "" | "movie_poster_path" | "movie_backdrop_path" | "tv_poster_path" | "tv_backdrop_path";
@@ -6,6 +8,8 @@ export type SelectOption = {
   label: string;
   value: string;
 };
+
+export type LibraryListItem = AdminMovieListItem | AdminTVListItem;
 
 export type LocalMovieCreateForm = {
   title: string;

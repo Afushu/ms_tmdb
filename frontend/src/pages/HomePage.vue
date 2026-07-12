@@ -2,12 +2,14 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter, type LocationQueryRaw } from "vue-router";
 import { getHomeDashboard, type AdminHomeMediaItem } from "@/api/admin";
-import { prefetchMediaDetail } from "@/api/prefetch";
+import { cancelPrefetch, prefetchMediaDetail, schedulePrefetch } from "@/api/prefetch";
 import { searchByType, type SearchType } from "@/api/search";
 import { tmdbImg } from "@/api/tmdb";
 import GlassSelect from "@/components/GlassSelect.vue";
+import LoadState from "@/components/common/LoadState.vue";
 import SearchResultList from "@/components/SearchResultList.vue";
 import type { SearchResultItem } from "@/types/media";
+import { resolveErrorMessage } from "@/utils/errors";
 import { buildSearchQuery, normalizeSearchType, readQueryString, searchTypeOptions } from "@/utils/routeSearch";
 import { isSameQuery } from "@/utils/routeQuery";
 
@@ -33,6 +35,9 @@ const homeMediaViewOptions: Array<{ label: string; value: HomeMediaViewMode }> =
 ];
 
 const loading = ref(false);
+const dashboardLoaded = ref(false);
+const loadError = ref("");
+const refreshError = ref("");
 const latestMedia = ref<AdminHomeMediaItem[]>([]);
 const hotMedia = ref<AdminHomeMediaItem[]>([]);
 const searchQuery = ref(readQueryString(route.query.q));
@@ -43,6 +48,7 @@ const homeMediaViewMode = ref<HomeMediaViewMode>(readHomeMediaViewMode());
 const homeMediaColumnCount = ref(5);
 let searchReqSeq = 0;
 let homeDashboardReady = false;
+const initialLoading = computed(() => loading.value && !dashboardLoaded.value);
 
 const hasRouteQuery = computed(() => Boolean(readQueryString(route.query.q)));
 const showSearchResults = computed(() => hasRouteQuery.value || searchResults.value.length > 0);
@@ -122,13 +128,28 @@ function overviewText(item: AdminHomeMediaItem): string {
 }
 
 async function loadData() {
+  const hadData = dashboardLoaded.value;
   loading.value = true;
+  loadError.value = "";
+  refreshError.value = "";
   try {
-    const resp = await getHomeDashboard(homeDashboardLimit.value);
+    // 首屏加载静默，失败由页面 LoadState/区域恢复处理
+    const resp = await getHomeDashboard(homeDashboardLimit.value, { showErrorToast: false });
     latestMedia.value = resp.data?.latest ?? [];
     hotMedia.value = resp.data?.hot ?? [];
-  } catch {
-    /* handled by global toast */
+    dashboardLoaded.value = true;
+    loadError.value = "";
+    refreshError.value = "";
+  } catch (error) {
+    const message = resolveErrorMessage(error, "请求失败，请重试");
+    if (hadData) {
+      // 已有看板数据刷新失败：保留旧内容，仅局部反馈
+      refreshError.value = message;
+      loadError.value = "";
+    } else {
+      loadError.value = message;
+      refreshError.value = "";
+    }
   } finally {
     loading.value = false;
   }
@@ -206,7 +227,15 @@ async function handleHomeSearch() {
   await runSearch(targetType, trimmedQuery);
 }
 
-function prefetchListItem(mediaType: "movie" | "tv", id: number | undefined) {
+function scheduleListItem(mediaType: "movie" | "tv", id: number | undefined) {
+  schedulePrefetch(mediaType, Number(id));
+}
+
+function cancelListItem(mediaType: "movie" | "tv", id: number | undefined) {
+  cancelPrefetch(mediaType, Number(id));
+}
+
+function touchListItem(mediaType: "movie" | "tv", id: number | undefined) {
   prefetchMediaDetail(mediaType, Number(id));
 }
 
@@ -313,45 +342,65 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section
-      v-for="section in homeMediaSections"
-      :key="section.key"
-      class="home-media-section"
-      :class="section.key === 'latest' ? 'mt-6' : 'mt-8'"
+    <div
+      v-if="refreshError && !loadError"
+      class="logs-refresh-error mt-4"
+      role="status"
+      aria-live="polite"
     >
-      <h3 class="section-title">{{ section.title }}</h3>
-      <div v-if="section.items.length" class="home-media-board" :class="`home-media-board-${homeMediaViewMode}`">
-        <RouterLink
-          v-for="item in section.items"
-          :key="`${item.media_type}-${item.tmdb_id}`"
-          :to="mediaRoute(item)"
-          class="home-media-card"
-          :class="`home-media-card-${homeMediaViewMode}`"
-          @mouseenter="prefetchListItem(item.media_type, item.tmdb_id)"
-          @focus="prefetchListItem(item.media_type, item.tmdb_id)"
-          @touchstart.passive="prefetchListItem(item.media_type, item.tmdb_id)"
-        >
-          <img
-            :src="tmdbImg(item.poster_path, 'w342')"
-            :srcset="`${tmdbImg(item.poster_path, 'w342')} 1x, ${tmdbImg(item.poster_path, 'w500')} 2x`"
-            :alt="displayTitle(item)"
-            class="home-media-poster"
-            loading="lazy"
-          />
-          <div class="home-media-info">
-            <p class="home-media-title">{{ displayTitle(item) }}</p>
-            <p class="home-media-meta">
-              <span class="home-media-stat-group">
-                <span class="rating-badge">{{ ratingText(item) }}</span>
-                <span class="home-media-type">{{ mediaTypeLabel(item.media_type) }} {{ yearText(item.air_date) }}</span>
-              </span>
-              <span v-if="section.key === 'hot'" class="home-media-metric">{{ visitText(item) }}</span>
-            </p>
-            <p v-if="homeMediaViewMode === 'list'" class="home-media-overview">{{ overviewText(item) }}</p>
-          </div>
-        </RouterLink>
-      </div>
-      <p v-else-if="!loading" class="empty-state">{{ section.emptyText }}</p>
-    </section>
+      <span>刷新失败：{{ refreshError }}</span>
+      <button type="button" class="btn-soft-xs" :disabled="loading" @click="loadData">重试</button>
+    </div>
+
+    <LoadState
+      class="mt-4"
+      :loading="initialLoading"
+      :error="loadError"
+      loading-text="看板加载中..."
+      @retry="loadData"
+    >
+      <section
+        v-for="section in homeMediaSections"
+        :key="section.key"
+        class="home-media-section"
+        :class="section.key === 'latest' ? 'mt-2' : 'mt-8'"
+      >
+        <h3 class="section-title">{{ section.title }}</h3>
+        <div v-if="section.items.length" class="home-media-board" :class="`home-media-board-${homeMediaViewMode}`">
+          <RouterLink
+            v-for="item in section.items"
+            :key="`${item.media_type}-${item.tmdb_id}`"
+            :to="mediaRoute(item)"
+            class="home-media-card"
+            :class="`home-media-card-${homeMediaViewMode}`"
+            @pointerenter="scheduleListItem(item.media_type, item.tmdb_id)"
+            @pointerleave="cancelListItem(item.media_type, item.tmdb_id)"
+            @focus="scheduleListItem(item.media_type, item.tmdb_id)"
+            @blur="cancelListItem(item.media_type, item.tmdb_id)"
+            @touchstart.passive="touchListItem(item.media_type, item.tmdb_id)"
+          >
+            <img
+              :src="tmdbImg(item.poster_path, 'w342')"
+              :srcset="`${tmdbImg(item.poster_path, 'w342')} 1x, ${tmdbImg(item.poster_path, 'w500')} 2x`"
+              :alt="displayTitle(item)"
+              class="home-media-poster"
+              loading="lazy"
+            />
+            <div class="home-media-info">
+              <p class="home-media-title">{{ displayTitle(item) }}</p>
+              <p class="home-media-meta">
+                <span class="home-media-stat-group">
+                  <span class="rating-badge">{{ ratingText(item) }}</span>
+                  <span class="home-media-type">{{ mediaTypeLabel(item.media_type) }} {{ yearText(item.air_date) }}</span>
+                </span>
+                <span v-if="section.key === 'hot'" class="home-media-metric">{{ visitText(item) }}</span>
+              </p>
+              <p v-if="homeMediaViewMode === 'list'" class="home-media-overview">{{ overviewText(item) }}</p>
+            </div>
+          </RouterLink>
+        </div>
+        <p v-else-if="!loading" class="empty-state">{{ section.emptyText }}</p>
+      </section>
+    </LoadState>
   </template>
 </template>

@@ -63,7 +63,7 @@ const emit = defineEmits<{
         <span :title="item.user_agent">{{ item.user_agent || "-" }}</span>
       </div>
 
-      <button class="btn-soft-xs logs-action" @click="emit('open-detail', item)">详情</button>
+      <button class="btn-soft-xs logs-action" type="button" @click="emit('open-detail', item)">查看详情</button>
     </article>
 
     <p v-if="!loading && items.length === 0" class="logs-empty">暂无外部访问日志</p>
