@@ -762,35 +762,57 @@
 }
 
 .settings-detail-table-fixed {
+  width: 100%;
+  min-width: 100%;
   table-layout: fixed;
 }
 
-.settings-detail-success-table {
-  min-width: 75rem;
-}
-
-.settings-detail-failed-table {
-  min-width: 54rem;
-}
-
+/* 桌面按比例铺满；小屏保留最小宽度，允许壳内横向滚动 */
 .settings-detail-col-media {
-  width: 17rem;
+  width: 22%;
 }
 
 .settings-detail-col-remote {
-  width: 20rem;
+  width: 28%;
 }
 
 .settings-detail-col-local {
-  width: 20rem;
+  width: 28%;
 }
 
 .settings-detail-col-message {
-  width: 18rem;
+  width: 22%;
 }
 
 .settings-detail-col-failure {
-  width: 37rem;
+  width: 78%;
+}
+
+@media (max-width: 767px) {
+  .settings-detail-success-table {
+    min-width: 75rem;
+  }
+
+  .settings-detail-failed-table {
+    min-width: 40rem;
+  }
+
+  .settings-detail-col-media {
+    width: 17rem;
+  }
+
+  .settings-detail-col-remote,
+  .settings-detail-col-local {
+    width: 20rem;
+  }
+
+  .settings-detail-col-message {
+    width: 18rem;
+  }
+
+  .settings-detail-col-failure {
+    width: auto;
+  }
 }
 
 .settings-table-primary {
