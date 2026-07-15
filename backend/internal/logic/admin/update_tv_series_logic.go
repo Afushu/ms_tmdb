@@ -163,7 +163,7 @@ func (l *UpdateTvSeriesLogic) UpdateTvSeries(req *types.AdminUpdateReq) error {
 		hasFieldUpdate = true
 	}
 	if req.GenreNames != nil {
-		genres := buildGenresFromNames(req.GenreNames)
+		genres := buildGenresFromNames(req.GenreNames, extractGenresFromTmdbData(tv.TmdbData))
 		patch["genres"] = genres
 		hasFieldUpdate = true
 	}

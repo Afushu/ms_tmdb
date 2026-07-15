@@ -1,9 +1,11 @@
 FROM nginx:1.30-alpine
 
 ARG TARGETARCH
+ARG VERSION=dev
 
 LABEL org.opencontainers.image.title="ms_tmdb"
 LABEL org.opencontainers.image.description="TMDB proxy and local enhancement platform runtime image"
+LABEL org.opencontainers.image.version="${VERSION}"
 
 WORKDIR /app
 

@@ -195,6 +195,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/upload/image",
 				Handler: admin.UploadImageHandler(serverCtx),
 			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/version",
+				Handler: admin.GetVersionHandler(serverCtx),
+			},
 		},
 		rest.WithPrefix("/api/admin"),
 	)

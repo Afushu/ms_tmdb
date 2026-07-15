@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"net/http"
 
 	"ms_tmdb/config"
@@ -19,14 +20,25 @@ import (
 	"github.com/zeromicro/go-zero/rest"
 )
 
-var configFile = flag.String("f", "etc/tmdb.yaml", "the config file")
+var (
+	Version    = "dev"
+	configFile = flag.String("f", "etc/tmdb.yaml", "the config file")
+	showVer    = flag.Bool("version", false, "显示版本号并退出")
+)
 
 func main() {
 	flag.Parse()
 
+	if *showVer {
+		fmt.Println("ms_tmdb version:", Version)
+		return
+	}
+
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
 	c.ConfigFile = *configFile
+
+	adminlogic.AppVersion = Version
 
 	logging.SetupConsoleWriter(c.Log.Mode)
 	response.RegisterErrorHandler()
@@ -61,6 +73,6 @@ func main() {
 		rest.WithPrefix("/uploads"),
 	)
 
-	logx.Infof("服务启动: %s:%d", c.Host, c.Port)
+	logx.Infof("服务启动: %s:%d version=%s", c.Host, c.Port, Version)
 	server.Start()
 }

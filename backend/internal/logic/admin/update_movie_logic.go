@@ -152,7 +152,7 @@ func (l *UpdateMovieLogic) UpdateMovie(req *types.AdminUpdateReq) error {
 		hasFieldUpdate = true
 	}
 	if req.GenreNames != nil {
-		genres := buildGenresFromNames(req.GenreNames)
+		genres := buildGenresFromNames(req.GenreNames, extractGenresFromTmdbData(movie.TmdbData))
 		patch["genres"] = genres
 		hasFieldUpdate = true
 	}
