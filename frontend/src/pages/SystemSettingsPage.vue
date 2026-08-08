@@ -110,22 +110,6 @@ function formatDateTime(value: string) {
   return date.toLocaleString("zh-CN", { hour12: false });
 }
 
-function formatDuration(durationMs: number) {
-  const ms = Number.isFinite(durationMs) ? Math.max(0, Math.trunc(durationMs)) : 0;
-  if (ms < 1000) {
-    return `${ms}ms`;
-  }
-
-  const seconds = ms / 1000;
-  if (seconds < 60) {
-    return `${seconds.toFixed(seconds < 10 ? 1 : 0)}s`;
-  }
-
-  const minutes = Math.floor(seconds / 60);
-  const remainSeconds = Math.round(seconds % 60);
-  return `${minutes}m ${remainSeconds}s`;
-}
-
 async function loadAutoSyncLogs() {
   logsLoading.value = true;
 
