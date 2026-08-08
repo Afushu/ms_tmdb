@@ -444,6 +444,7 @@ func queryIndexStatements() []string {
 		"CREATE INDEX IF NOT EXISTS idx_auto_sync_logs_live_status_id_desc ON auto_sync_execution_logs (status, id DESC) WHERE deleted_at IS NULL",
 		"CREATE INDEX IF NOT EXISTS idx_auto_sync_logs_deleted_id_desc ON auto_sync_execution_logs (deleted_at, id DESC)",
 		"CREATE INDEX IF NOT EXISTS idx_auto_sync_logs_deleted_status_id_desc ON auto_sync_execution_logs (deleted_at, status, id DESC)",
+		"CREATE INDEX IF NOT EXISTS idx_auto_sync_logs_cleanup ON auto_sync_execution_logs (created_at ASC, id ASC)",
 	}
 }
 

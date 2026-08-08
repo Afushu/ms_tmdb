@@ -38,8 +38,10 @@ type TmdbAutoSyncConf struct {
 
 // TmdbLogConf TMDB 代理与回源请求日志配置
 type TmdbLogConf struct {
-	RetentionDays  int `json:",optional"`
-	BodyLimitBytes int `json:",optional"`
+	RetentionDays  int  `json:",optional"`
+	BodyLimitBytes int  `json:",optional"`
+	// ReclaimSpace 清理过期日志后是否执行 VACUUM FULL 归还磁盘空间，默认开启。
+	ReclaimSpace bool `json:",default=true"`
 }
 
 // PostgresConf PostgreSQL 连接配置

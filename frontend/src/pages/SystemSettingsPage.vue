@@ -6,9 +6,11 @@ import ToastNotice from "@/components/common/ToastNotice.vue";
 import {
   getAutoSyncLogs,
   getAutoSyncSettings,
+  getLogSettings,
   getProxySettings,
   runAutoSyncNow,
   updateAutoSyncSettings,
+  updateLogSettings,
   updateProxySettings,
   type AdminAutoSyncLogItem,
   type AdminAutoSyncMode,
@@ -25,6 +27,9 @@ const proxyURL = ref("");
 const proxyLocalWriteEnabled = ref(true);
 const proxyTimeout = ref(30000);
 const proxyTimeoutRestartRequired = ref(false);
+
+const logSaving = ref(false);
+const logRetentionDays = ref(7);
 
 const syncSaving = ref(false);
 const syncEnabled = ref(true);
@@ -44,12 +49,15 @@ const modeOptions: Array<{ label: string; value: AdminAutoSyncMode; hint: string
   { label: "全量覆盖", value: "overwrite_all", hint: "使用 TMDB 最新数据覆盖本地字段" },
 ];
 
-const settingsBusy = computed(() => loading.value || proxySaving.value || syncSaving.value || syncTriggering.value || logsLoading.value);
+const settingsBusy = computed(
+  () => loading.value || proxySaving.value || logSaving.value || syncSaving.value || syncTriggering.value || logsLoading.value,
+);
 const proxyStatusText = computed(() => (proxyEnabled.value ? "已启用" : "直连"));
 const proxyLocalWriteStatusText = computed(() => (proxyLocalWriteEnabled.value ? "自动写入本地" : "仅读已有本地"));
 const proxyTimeoutStatusText = computed(() =>
   proxyTimeoutRestartRequired.value ? "超时配置待重启生效" : `请求超时 ${formatDuration(proxyTimeout.value)}`,
 );
+const logRetentionStatusText = computed(() => `保留 ${logRetentionDays.value} 天`);
 const syncStatusText = computed(() => (syncEnabled.value ? "已启用" : "已关闭"));
 const taskRunStatusText = computed(() => (syncRunning.value ? "执行中" : "空闲"));
 const latestLog = computed(() => logsItems.value[0] ?? null);
@@ -138,9 +146,10 @@ async function loadSettings() {
   loading.value = true;
 
   try {
-    const [proxyResp, autoSyncResp] = await Promise.all([
+    const [proxyResp, autoSyncResp, logResp] = await Promise.all([
       getProxySettings(),
       getAutoSyncSettings(),
+      getLogSettings(),
     ]);
     const proxyData = proxyResp.data;
     proxyEnabled.value = !!proxyData.enabled;
@@ -156,6 +165,9 @@ async function loadSettings() {
     syncBatchSize.value = normalizeNumber(Number(syncData.batch_size), 1, 500);
     syncStartDelaySecond.value = normalizeNumber(Number(syncData.start_delay_second), 0, 3600);
     syncRunning.value = !!syncData.running;
+
+    const logData = logResp.data;
+    logRetentionDays.value = normalizeNumber(Number(logData.retention_days), 1, 365) || 7;
     settingsLoaded.value = true;
   } catch {
     // 错误已由全局请求拦截器提示。
@@ -191,6 +203,22 @@ async function saveProxySettings() {
     // errors shown via global toast
   } finally {
     proxySaving.value = false;
+  }
+}
+
+async function saveLogSettings() {
+  logSaving.value = true;
+  try {
+    const resp = await updateLogSettings({
+      retention_days: normalizeNumber(logRetentionDays.value, 1, 365),
+    });
+    const data = resp.data;
+    logRetentionDays.value = normalizeNumber(Number(data.retention_days), 1, 365) || 7;
+    showToastNotice(`日志保留天数已更新为 ${logRetentionDays.value} 天`, "success");
+  } catch {
+    // errors shown via global toast
+  } finally {
+    logSaving.value = false;
   }
 }
 
@@ -252,7 +280,7 @@ onMounted(reloadAll);
       <div class="min-w-0">
         <p class="section-label">系统设置</p>
         <h2 class="library-toolbar-title">运行配置</h2>
-        <p class="mt-1 text-sm text-black/55">统一管理 TMDB 网络代理和库内定时同步任务。</p>
+        <p class="mt-1 text-sm text-black/55">统一管理 TMDB 网络代理、日志保留和库内定时同步任务。</p>
       </div>
 
       <div class="flex items-center gap-3">
@@ -276,6 +304,11 @@ onMounted(reloadAll);
             {{ proxyEnabled ? proxyURL || "已启用，等待代理地址" : "后端直连 TMDB" }} · {{ proxyLocalWriteStatusText }} ·
             {{ proxyTimeoutStatusText }}
           </p>
+        </article>
+        <article class="settings-summary-card">
+          <span class="settings-summary-label">日志保留</span>
+          <strong>{{ logRetentionStatusText }}</strong>
+          <p>覆盖访问日志、上游请求日志与自动同步日志</p>
         </article>
         <article class="settings-summary-card">
           <span class="settings-summary-label">自动同步</span>
@@ -358,6 +391,36 @@ onMounted(reloadAll);
         <div class="settings-card-actions">
           <button class="btn-primary disabled:opacity-60" :disabled="proxySaving" @click="saveProxySettings">
             {{ proxySaving ? "保存中..." : "保存代理设置" }}
+          </button>
+        </div>
+      </div>
+
+      <div class="card settings-card">
+        <div class="settings-panel-header">
+          <div>
+            <p class="section-label">Logs</p>
+            <h3 class="settings-section-title">日志保留设置</h3>
+            <p class="settings-note">统一控制三类日志的自动清理周期，保存后即时生效。</p>
+          </div>
+          <span class="badge">{{ logRetentionStatusText }}</span>
+        </div>
+
+        <label class="settings-field-label">
+          日志保留天数
+          <input
+            v-model.number="logRetentionDays"
+            type="number"
+            min="1"
+            max="365"
+            class="field-control mt-1 w-full text-sm"
+            :disabled="logSaving"
+          />
+          <span>可设置 1-365 天；默认 14 天。覆盖 proxy_access_logs、tmdb_request_logs、auto_sync_execution_logs。</span>
+        </label>
+
+        <div class="settings-card-actions">
+          <button class="btn-primary disabled:opacity-60" :disabled="logSaving" @click="saveLogSettings">
+            {{ logSaving ? "保存中..." : "保存日志保留设置" }}
           </button>
         </div>
       </div>

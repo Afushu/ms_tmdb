@@ -139,6 +139,16 @@ type (
 		StartDelaySecond int    `json:"start_delay_second"`
 		Running          bool   `json:"running"`
 	}
+	// 管理接口 - 日志保留设置请求
+	AdminLogSettingsReq {
+		// 日志保留天数，覆盖 proxy_access_logs / tmdb_request_logs / auto_sync_execution_logs
+		RetentionDays *int `json:"retention_days,optional"`
+	}
+	// 管理接口 - 日志保留设置响应
+	AdminLogSettingsResp {
+		// 当前日志保留天数
+		RetentionDays int `json:"retention_days"`
+	}
 	// 管理接口 - 手动触发自动同步响应
 	AdminAutoSyncRunResp {
 		Started bool   `json:"started"`
@@ -509,6 +519,12 @@ service tmdb-api {
 
 	@handler UpdateAutoSyncSettings
 	put /auto-sync (AdminAutoSyncReq) returns (AdminAutoSyncResp)
+
+	@handler GetLogSettings
+	get /log-settings returns (AdminLogSettingsResp)
+
+	@handler UpdateLogSettings
+	put /log-settings (AdminLogSettingsReq) returns (AdminLogSettingsResp)
 
 	@handler RunAutoSyncNow
 	post /auto-sync/run returns (AdminAutoSyncRunResp)

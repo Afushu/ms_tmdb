@@ -1,6 +1,10 @@
 package service
 
-import "testing"
+import (
+	"testing"
+
+	"ms_tmdb/config"
+)
 
 func TestBuildProxyAccessLog(t *testing.T) {
 	tests := []struct {
@@ -134,5 +138,84 @@ func TestBuildProxyAccessLog(t *testing.T) {
 				t.Fatalf("request_id = %q, want %q", got.RequestID, tt.wantRequestID)
 			}
 		})
+	}
+}
+
+func TestNewRequestLogServiceDefaultRetentionDays(t *testing.T) {
+	service := NewRequestLogService(nil, config.TmdbLogConf{})
+	if service.RetentionDays() != 7 {
+		t.Fatalf("RetentionDays() = %d, want 7", service.RetentionDays())
+	}
+}
+
+func TestNewRequestLogServiceKeepsConfiguredRetentionDays(t *testing.T) {
+	service := NewRequestLogService(nil, config.TmdbLogConf{RetentionDays: 30})
+	if service.RetentionDays() != 30 {
+		t.Fatalf("RetentionDays() = %d, want 30", service.RetentionDays())
+	}
+}
+
+func TestSetRetentionDaysNormalizesInvalidValue(t *testing.T) {
+	service := NewRequestLogService(nil, config.TmdbLogConf{RetentionDays: 30})
+	service.SetRetentionDays(0)
+	if service.RetentionDays() != 7 {
+		t.Fatalf("after SetRetentionDays(0) RetentionDays() = %d, want 7", service.RetentionDays())
+	}
+
+	service.SetRetentionDays(21)
+	if service.RetentionDays() != 21 {
+		t.Fatalf("after SetRetentionDays(21) RetentionDays() = %d, want 21", service.RetentionDays())
+	}
+}
+
+func TestCleanupExpiredLogTables(t *testing.T) {
+	tables := cleanupExpiredLogTables()
+	want := []string{
+		"proxy_access_logs",
+		"tmdb_request_logs",
+		"auto_sync_execution_logs",
+	}
+	if len(tables) != len(want) {
+		t.Fatalf("cleanupExpiredLogTables() len = %d, want %d (%v)", len(tables), len(want), tables)
+	}
+	for i, name := range want {
+		if tables[i] != name {
+			t.Fatalf("cleanupExpiredLogTables()[%d] = %q, want %q", i, tables[i], name)
+		}
+	}
+}
+
+func TestIsAllowedCleanupTable(t *testing.T) {
+	if !isAllowedCleanupTable("tmdb_request_logs") {
+		t.Fatal("tmdb_request_logs should be allowed")
+	}
+	if isAllowedCleanupTable("movies") {
+		t.Fatal("movies must not be allowed")
+	}
+}
+
+func TestFormatBytes(t *testing.T) {
+	if got := formatBytes(512); got != "512 B" {
+		t.Fatalf("formatBytes(512) = %q, want 512 B", got)
+	}
+	if got := formatBytes(1536); got != "1.5 KB" {
+		t.Fatalf("formatBytes(1536) = %q, want 1.5 KB", got)
+	}
+}
+
+func TestReclaimSpaceEnabledFromConfig(t *testing.T) {
+	enabled := NewRequestLogService(nil, config.TmdbLogConf{ReclaimSpace: true})
+	if !enabled.ReclaimSpaceEnabled() {
+		t.Fatal("ReclaimSpaceEnabled() = false, want true")
+	}
+
+	disabled := NewRequestLogService(nil, config.TmdbLogConf{ReclaimSpace: false})
+	if disabled.ReclaimSpaceEnabled() {
+		t.Fatal("ReclaimSpaceEnabled() = true, want false")
+	}
+
+	disabled.SetReclaimSpace(true)
+	if !disabled.ReclaimSpaceEnabled() {
+		t.Fatal("after SetReclaimSpace(true) want true")
 	}
 }

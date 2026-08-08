@@ -50,6 +50,14 @@ export type AdminAutoSyncPayload = {
   start_delay_second?: number;
 };
 
+export type AdminLogSettingsResp = {
+  retention_days: number;
+};
+
+export type AdminLogSettingsPayload = {
+  retention_days?: number;
+};
+
 export type AdminAutoSyncRunResp = {
   started: boolean;
   running: boolean;
@@ -444,6 +452,14 @@ export function getAutoSyncSettings(options?: RequestOptions) {
 
 export function updateAutoSyncSettings(payload: AdminAutoSyncPayload) {
   return http.put<AdminAutoSyncResp>("/api/admin/auto-sync", payload);
+}
+
+export function getLogSettings(options?: RequestOptions) {
+  return http.get<AdminLogSettingsResp>("/api/admin/log-settings", { ...options });
+}
+
+export function updateLogSettings(payload: AdminLogSettingsPayload) {
+  return http.put<AdminLogSettingsResp>("/api/admin/log-settings", payload);
 }
 
 export function runAutoSyncNow() {

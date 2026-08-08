@@ -32,3 +32,5 @@ Tmdb:
   Log:
     RetentionDays: 7
     BodyLimitBytes: 1048576
+    # 清理后执行 VACUUM FULL 归还磁盘；高峰期可设 false
+    ReclaimSpace: true

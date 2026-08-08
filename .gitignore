@@ -1,5 +1,6 @@
 # Local runtime config (contains secrets)
 backend/etc/tmdb.yaml
+backend/etc/tmdb-api.yaml
 
 # Local pnpm store/cache
 .pnpm-store/
