@@ -141,7 +141,7 @@ type (
 	}
 	// 管理接口 - 日志保留设置请求
 	AdminLogSettingsReq {
-		// 日志保留天数，覆盖 proxy_access_logs / tmdb_request_logs / auto_sync_execution_logs
+		// 日志保留天数，覆盖访问日志、上游请求日志与自动同步日志
 		RetentionDays *int `json:"retention_days,optional"`
 	}
 	// 管理接口 - 日志保留设置响应

@@ -52,11 +52,9 @@ const modeOptions: Array<{ label: string; value: AdminAutoSyncMode; hint: string
 const settingsBusy = computed(
   () => loading.value || proxySaving.value || logSaving.value || syncSaving.value || syncTriggering.value || logsLoading.value,
 );
+const networkSaving = computed(() => proxySaving.value || logSaving.value);
 const proxyStatusText = computed(() => (proxyEnabled.value ? "已启用" : "直连"));
-const proxyLocalWriteStatusText = computed(() => (proxyLocalWriteEnabled.value ? "自动写入本地" : "仅读已有本地"));
-const proxyTimeoutStatusText = computed(() =>
-  proxyTimeoutRestartRequired.value ? "超时配置待重启生效" : `请求超时 ${formatDuration(proxyTimeout.value)}`,
-);
+const proxyLocalWriteStatusText = computed(() => (proxyLocalWriteEnabled.value ? "可写本地" : "只读本地"));
 const logRetentionStatusText = computed(() => `保留 ${logRetentionDays.value} 天`);
 const syncStatusText = computed(() => (syncEnabled.value ? "已启用" : "已关闭"));
 const taskRunStatusText = computed(() => (syncRunning.value ? "执行中" : "空闲"));
@@ -176,48 +174,51 @@ async function loadSettings() {
   }
 }
 
-async function saveProxySettings() {
+async function saveNetworkSettings() {
   proxySaving.value = true;
+  logSaving.value = true;
   try {
     const nextProxyURL = proxyEnabled.value ? normalizeProxyURL(proxyURL.value) : "";
-    const resp = await updateProxySettings({
-      proxy_url: nextProxyURL,
-      local_write_enabled: proxyLocalWriteEnabled.value,
-      timeout: normalizeTimeout(proxyTimeout.value),
-    });
-    const data = resp.data;
-    proxyURL.value = data.proxy_url ?? "";
-    proxyEnabled.value = !!data.enabled;
-    proxyLocalWriteEnabled.value = data.local_write_enabled !== false;
-    proxyTimeout.value = normalizeTimeout(Number(data.timeout) || proxyTimeout.value);
-    proxyTimeoutRestartRequired.value = !!data.timeout_restart_required;
+    const nextRetentionDays = normalizeNumber(logRetentionDays.value, 1, 365);
+    const [proxyResp, logResp] = await Promise.all([
+      updateProxySettings({
+        proxy_url: nextProxyURL,
+        local_write_enabled: proxyLocalWriteEnabled.value,
+        timeout: normalizeTimeout(proxyTimeout.value),
+      }),
+      updateLogSettings({
+        retention_days: nextRetentionDays,
+      }),
+    ]);
+
+    const proxyData = proxyResp.data;
+    proxyURL.value = proxyData.proxy_url ?? "";
+    proxyEnabled.value = !!proxyData.enabled;
+    proxyLocalWriteEnabled.value = proxyData.local_write_enabled !== false;
+    proxyTimeout.value = normalizeTimeout(Number(proxyData.timeout) || proxyTimeout.value);
+    proxyTimeoutRestartRequired.value = !!proxyData.timeout_restart_required;
+
+    const logData = logResp.data;
+    logRetentionDays.value = normalizeNumber(Number(logData.retention_days), 1, 365) || 7;
+
+    if (proxyTimeoutRestartRequired.value) {
+      showToastNotice(
+        `网络与日志配置已保存；日志保留 ${logRetentionDays.value} 天。TMDB 请求超时已即时生效，重启后端可同步外层请求超时`,
+        "success",
+      );
+      return;
+    }
+
     showToastNotice(
-      proxyTimeoutRestartRequired.value
-        ? "网络配置已保存，TMDB 请求超时已即时生效，重启后端可同步外层请求超时"
-        : proxyEnabled.value
-          ? "代理配置已保存"
-          : "代理已关闭，当前为直连",
+      proxyEnabled.value
+        ? `网络与日志配置已保存；日志保留 ${logRetentionDays.value} 天`
+        : `代理已关闭为直连；日志保留 ${logRetentionDays.value} 天`,
       proxyEnabled.value ? "success" : "info",
     );
   } catch {
-    // errors shown via global toast
+    // 错误已由全局请求拦截器提示。
   } finally {
     proxySaving.value = false;
-  }
-}
-
-async function saveLogSettings() {
-  logSaving.value = true;
-  try {
-    const resp = await updateLogSettings({
-      retention_days: normalizeNumber(logRetentionDays.value, 1, 365),
-    });
-    const data = resp.data;
-    logRetentionDays.value = normalizeNumber(Number(data.retention_days), 1, 365) || 7;
-    showToastNotice(`日志保留天数已更新为 ${logRetentionDays.value} 天`, "success");
-  } catch {
-    // errors shown via global toast
-  } finally {
     logSaving.value = false;
   }
 }
@@ -299,26 +300,23 @@ onMounted(reloadAll);
       <section class="settings-summary-grid">
         <article class="settings-summary-card">
           <span class="settings-summary-label">代理访问</span>
-          <strong>{{ proxyStatusText }}</strong>
-          <p>
-            {{ proxyEnabled ? proxyURL || "已启用，等待代理地址" : "后端直连 TMDB" }} · {{ proxyLocalWriteStatusText }} ·
-            {{ proxyTimeoutStatusText }}
-          </p>
+          <strong>{{ proxyStatusText }} · {{ proxyLocalWriteStatusText }}</strong>
+          <p>{{ proxyEnabled ? proxyURL || "等待代理地址" : "直连 TMDB" }}</p>
         </article>
         <article class="settings-summary-card">
           <span class="settings-summary-label">日志保留</span>
           <strong>{{ logRetentionStatusText }}</strong>
-          <p>覆盖访问日志、上游请求日志与自动同步日志</p>
+          <p>访问 / 上游 / 自动同步日志</p>
         </article>
         <article class="settings-summary-card">
           <span class="settings-summary-label">自动同步</span>
           <strong>{{ syncStatusText }}</strong>
-          <p>{{ syncEnabled ? `${syncCronExpr} · ${formatMode(syncMode)}` : "不会自动调度同步任务" }}</p>
+          <p>{{ syncEnabled ? `${syncCronExpr} · ${formatMode(syncMode)}` : "未启用调度" }}</p>
         </article>
         <article class="settings-summary-card">
           <span class="settings-summary-label">任务状态</span>
           <strong>{{ taskRunStatusText }}</strong>
-          <p>批大小 {{ syncBatchSize }} · 启动延迟 {{ syncStartDelaySecond }} 秒</p>
+          <p>批大小 {{ syncBatchSize }} · 延迟 {{ syncStartDelaySecond }}s</p>
         </article>
         <article class="settings-summary-card">
           <span class="settings-summary-label">最近执行</span>
@@ -337,10 +335,9 @@ onMounted(reloadAll);
         <div class="settings-panel-header">
           <div>
             <p class="section-label">Network</p>
-            <h3 class="settings-section-title">代理设置</h3>
-            <p class="settings-note">配置后端访问 TMDB 时使用的网络代理。</p>
+            <h3 class="settings-section-title">代理与日志</h3>
+            <p class="settings-note">配置 TMDB 网络代理，并统一控制三类日志的自动清理周期。</p>
           </div>
-          <span class="badge">{{ proxyStatusText }}</span>
         </div>
 
         <label class="settings-toggle-row">
@@ -352,7 +349,7 @@ onMounted(reloadAll);
         </label>
 
         <label class="settings-toggle-row">
-          <input v-model="proxyLocalWriteEnabled" type="checkbox" class="check-control" :disabled="proxySaving" />
+          <input v-model="proxyLocalWriteEnabled" type="checkbox" class="check-control" :disabled="networkSaving" />
           <span>
             <strong>允许代理自动写入本地库</strong>
             <small>关闭后仍优先读取已有本地数据，回源 TMDB 成功后不再新增或更新本地库。</small>
@@ -365,7 +362,7 @@ onMounted(reloadAll);
             v-model="proxyURL"
             type="text"
             class="field-control mt-1 w-full text-sm"
-            :disabled="!proxyEnabled || proxySaving"
+            :disabled="!proxyEnabled || networkSaving"
             placeholder="http://127.0.0.1:7890"
           />
         </label>
@@ -380,30 +377,13 @@ onMounted(reloadAll);
             max="300000"
             step="1000"
             class="field-control mt-1 w-full text-sm"
-            :disabled="proxySaving"
+            :disabled="networkSaving"
           />
           <span>可设置 1000-300000 毫秒；TMDB 请求超时保存后即时生效，外层请求处理超时重启后同步。</span>
         </label>
         <p v-if="proxyTimeoutRestartRequired" class="settings-feedback settings-feedback-warning">
           当前外层请求处理超时配置已变更，重启后端后完全同步。
         </p>
-
-        <div class="settings-card-actions">
-          <button class="btn-primary disabled:opacity-60" :disabled="proxySaving" @click="saveProxySettings">
-            {{ proxySaving ? "保存中..." : "保存代理设置" }}
-          </button>
-        </div>
-      </div>
-
-      <div class="card settings-card">
-        <div class="settings-panel-header">
-          <div>
-            <p class="section-label">Logs</p>
-            <h3 class="settings-section-title">日志保留设置</h3>
-            <p class="settings-note">统一控制三类日志的自动清理周期，保存后即时生效。</p>
-          </div>
-          <span class="badge">{{ logRetentionStatusText }}</span>
-        </div>
 
         <label class="settings-field-label">
           日志保留天数
@@ -413,14 +393,14 @@ onMounted(reloadAll);
             min="1"
             max="365"
             class="field-control mt-1 w-full text-sm"
-            :disabled="logSaving"
+            :disabled="networkSaving"
           />
-          <span>可设置 1-365 天；默认 14 天。覆盖 proxy_access_logs、tmdb_request_logs、auto_sync_execution_logs。</span>
+          <span>读取当前运行配置；可设置 1-365 天，默认 7 天。覆盖访问日志、上游请求日志与自动同步日志。</span>
         </label>
 
         <div class="settings-card-actions">
-          <button class="btn-primary disabled:opacity-60" :disabled="logSaving" @click="saveLogSettings">
-            {{ logSaving ? "保存中..." : "保存日志保留设置" }}
+          <button class="btn-primary disabled:opacity-60" :disabled="networkSaving" @click="saveNetworkSettings">
+            {{ networkSaving ? "保存中..." : "保存设置" }}
           </button>
         </div>
       </div>
