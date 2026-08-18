@@ -31,5 +31,6 @@ func (l *GetProxySettingsLogic) GetProxySettings() (*types.AdminProxyResp, error
 		LocalWriteEnabled:      l.svcCtx.ProxyService.LocalWriteEnabled(),
 		Timeout:                l.svcCtx.Config.Timeout,
 		TimeoutRestartRequired: timeoutRestartRequired(l.svcCtx),
+		PublicBaseURL:          l.svcCtx.ProxyService.GetPublicBaseURL(),
 	}, nil
 }

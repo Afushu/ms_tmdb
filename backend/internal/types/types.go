@@ -261,6 +261,7 @@ type AdminProxyReq struct {
 	ProxyURL          *string `json:"proxy_url,optional"`
 	LocalWriteEnabled *bool   `json:"local_write_enabled,optional"`
 	Timeout           *int64  `json:"timeout,optional"`
+	PublicBaseURL     *string `json:"public_base_url,optional"`
 }
 
 type AdminProxyResp struct {
@@ -269,6 +270,7 @@ type AdminProxyResp struct {
 	LocalWriteEnabled      bool   `json:"local_write_enabled"`
 	Timeout                int64  `json:"timeout"`
 	TimeoutRestartRequired bool   `json:"timeout_restart_required"`
+	PublicBaseURL          string `json:"public_base_url"`
 }
 
 type AdminRequestLogClearResp struct {

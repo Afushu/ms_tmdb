@@ -23,12 +23,14 @@ export type AdminProxyResp = {
   local_write_enabled: boolean;
   timeout: number;
   timeout_restart_required: boolean;
+  public_base_url: string;
 };
 
 export type AdminProxyPayload = {
   proxy_url?: string;
   local_write_enabled?: boolean;
   timeout?: number;
+  public_base_url?: string;
 };
 
 export type AdminAutoSyncMode = "overwrite_all" | "update_unmodified";

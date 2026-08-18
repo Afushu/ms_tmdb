@@ -27,6 +27,7 @@ const proxyURL = ref("");
 const proxyLocalWriteEnabled = ref(true);
 const proxyTimeout = ref(30000);
 const proxyTimeoutRestartRequired = ref(false);
+const proxyPublicBaseURL = ref("");
 
 const logSaving = ref(false);
 const logRetentionDays = ref(7);
@@ -138,6 +139,7 @@ async function loadSettings() {
     proxyURL.value = proxyData.proxy_url ?? "";
     proxyLocalWriteEnabled.value = proxyData.local_write_enabled !== false;
     proxyTimeout.value = normalizeTimeout(Number(proxyData.timeout) || 30000);
+    proxyPublicBaseURL.value = proxyData.public_base_url ?? "";
     proxyTimeoutRestartRequired.value = !!proxyData.timeout_restart_required;
 
     const syncData = autoSyncResp.data;
@@ -169,6 +171,7 @@ async function saveNetworkSettings() {
         proxy_url: nextProxyURL,
         local_write_enabled: proxyLocalWriteEnabled.value,
         timeout: normalizeTimeout(proxyTimeout.value),
+        public_base_url: normalizeProxyURL(proxyPublicBaseURL.value),
       }),
       updateLogSettings({
         retention_days: nextRetentionDays,
@@ -180,6 +183,7 @@ async function saveNetworkSettings() {
     proxyEnabled.value = !!proxyData.enabled;
     proxyLocalWriteEnabled.value = proxyData.local_write_enabled !== false;
     proxyTimeout.value = normalizeTimeout(Number(proxyData.timeout) || proxyTimeout.value);
+    proxyPublicBaseURL.value = proxyData.public_base_url ?? "";
     proxyTimeoutRestartRequired.value = !!proxyData.timeout_restart_required;
 
     const logData = logResp.data;
@@ -351,6 +355,18 @@ onMounted(reloadAll);
           />
         </label>
         <p class="settings-help-text">支持格式示例：http://127.0.0.1:7890、socks5://127.0.0.1:1080</p>
+
+        <label class="settings-field-label">
+          对外访问地址
+          <input
+            v-model="proxyPublicBaseURL"
+            type="text"
+            class="field-control mt-1 w-full text-sm"
+            :disabled="networkSaving"
+            placeholder="http://192.168.50.10:18080"
+          />
+          <span>用于把本地上传图片 /uploads/xxx 改写为完整 URL，供 media-saber 等外部系统跨域访问；留空保持同源相对路径。</span>
+        </label>
 
         <label class="settings-field-label">
           请求超时（毫秒）

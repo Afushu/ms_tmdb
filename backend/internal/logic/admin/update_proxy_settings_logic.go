@@ -37,6 +37,7 @@ func (l *UpdateProxySettingsLogic) UpdateProxySettings(req *types.AdminProxyReq)
 	oldProxyURL := l.svcCtx.TmdbClient.GetProxy()
 	oldLocalWriteEnabled := l.svcCtx.ProxyService.LocalWriteEnabled()
 	oldTimeout := l.svcCtx.Config.Timeout
+	oldPublicBaseURL := l.svcCtx.ProxyService.GetPublicBaseURL()
 
 	proxyURL := oldProxyURL
 	if req.ProxyURL != nil {
@@ -54,26 +55,40 @@ func (l *UpdateProxySettingsLogic) UpdateProxySettings(req *types.AdminProxyReq)
 		}
 		timeout = *req.Timeout
 	}
+	publicBaseURL := oldPublicBaseURL
+	var publicBaseURLConfig *string
+	if req.PublicBaseURL != nil {
+		raw := strings.TrimSpace(*req.PublicBaseURL)
+		if err := validatePublicBaseURL(raw); err != nil {
+			return nil, err
+		}
+		publicBaseURL = strings.TrimRight(raw, "/")
+		publicBaseURLConfig = &publicBaseURL
+	}
 
 	if err := l.svcCtx.TmdbClient.SetProxy(proxyURL); err != nil {
 		return nil, err
 	}
 	l.svcCtx.TmdbClient.SetTimeoutMillis(timeout)
 	l.svcCtx.ProxyService.SetLocalWriteEnabled(localWriteEnabled)
+	l.svcCtx.ProxyService.SetPublicBaseURL(publicBaseURL)
 	l.svcCtx.Config.Tmdb.LocalWriteEnabled = localWriteEnabled
 	l.svcCtx.Config.Timeout = timeout
+	l.svcCtx.Config.PublicBaseURL = publicBaseURL
 
 	configFile := strings.TrimSpace(l.svcCtx.Config.ConfigFile)
 	if configFile == "" {
 		configFile = "etc/tmdb.yaml"
 	}
-	if err := writeProxySettingsToConfigFile(configFile, proxyURL, localWriteEnabled, req.Timeout); err != nil {
-		// 配置写入失败时回滚当前进程设置，避免“显示成功但重启丢失”。
+	if err := writeProxySettingsToConfigFile(configFile, proxyURL, localWriteEnabled, req.Timeout, publicBaseURLConfig); err != nil {
+		// 配置写入失败时回滚当前进程设置，避免"显示成功但重启丢失"。
 		_ = l.svcCtx.TmdbClient.SetProxy(oldProxyURL)
 		l.svcCtx.TmdbClient.SetTimeoutMillis(oldTimeout)
 		l.svcCtx.ProxyService.SetLocalWriteEnabled(oldLocalWriteEnabled)
+		l.svcCtx.ProxyService.SetPublicBaseURL(oldPublicBaseURL)
 		l.svcCtx.Config.Tmdb.LocalWriteEnabled = oldLocalWriteEnabled
 		l.svcCtx.Config.Timeout = oldTimeout
+		l.svcCtx.Config.PublicBaseURL = oldPublicBaseURL
 		return nil, err
 	}
 
@@ -83,7 +98,18 @@ func (l *UpdateProxySettingsLogic) UpdateProxySettings(req *types.AdminProxyReq)
 		LocalWriteEnabled:      localWriteEnabled,
 		Timeout:                timeout,
 		TimeoutRestartRequired: timeoutRestartRequired(l.svcCtx),
+		PublicBaseURL:          publicBaseURL,
 	}, nil
+}
+
+func validatePublicBaseURL(raw string) error {
+	if raw == "" {
+		return nil
+	}
+	if !strings.HasPrefix(raw, "http://") && !strings.HasPrefix(raw, "https://") {
+		return errors.New("对外访问地址必须以 http:// 或 https:// 开头")
+	}
+	return nil
 }
 
 func validateRequestTimeout(timeout int64) error {
@@ -100,7 +126,7 @@ func timeoutRestartRequired(svcCtx *svc.ServiceContext) bool {
 	return svcCtx.Config.Timeout != svcCtx.StartupTimeout
 }
 
-func writeProxySettingsToConfigFile(configPath string, proxyURL string, localWriteEnabled bool, timeout *int64) error {
+func writeProxySettingsToConfigFile(configPath string, proxyURL string, localWriteEnabled bool, timeout *int64, publicBaseURL *string) error {
 	configFile, err := readConfigFileLines(configPath)
 	if err != nil {
 		return err
@@ -117,6 +143,11 @@ func writeProxySettingsToConfigFile(configPath string, proxyURL string, localWri
 		configFile.lines = applyTopLevelConfigValues(configFile.lines, map[string]string{
 			"Timeout": fmt.Sprintf("%d", *timeout),
 		}, []string{"Timeout"})
+	}
+	if publicBaseURL != nil {
+		configFile.lines = applyTopLevelConfigValues(configFile.lines, map[string]string{
+			"PublicBaseURL": yamlDoubleQuoted(*publicBaseURL),
+		}, []string{"PublicBaseURL"})
 	}
 	return configFile.write()
 }

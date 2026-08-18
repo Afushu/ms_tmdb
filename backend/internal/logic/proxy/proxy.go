@@ -21,12 +21,12 @@ const tvSeasonLocalDataKey = "_ms_tv_season_local"
 
 // ProxyService 代理服务，封装 Read-Through 缓存逻辑
 type ProxyService struct {
-	DB            *gorm.DB
-	TmdbClient    *tmdbclient.Client
-	DefaultLang   string
-	PublicBaseURL string
-	mu            sync.RWMutex
+	DB          *gorm.DB
+	TmdbClient  *tmdbclient.Client
+	DefaultLang string
+	mu          sync.RWMutex
 
+	publicBaseURL     string
 	localWriteEnabled bool
 }
 
@@ -35,15 +35,34 @@ func NewProxyService(db *gorm.DB, client *tmdbclient.Client, defaultLang string,
 		DB:                db,
 		TmdbClient:        client,
 		DefaultLang:       strings.TrimSpace(defaultLang),
-		PublicBaseURL:     strings.TrimSpace(publicBaseURL),
+		publicBaseURL:     normalizePublicBaseURL(publicBaseURL),
 		localWriteEnabled: localWriteEnabled,
 	}
+}
+
+// GetPublicBaseURL 返回对外访问地址，空字符串表示未配置。
+func (s *ProxyService) GetPublicBaseURL() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.publicBaseURL
+}
+
+// SetPublicBaseURL 更新对外访问地址，空字符串表示关闭本地图片 URL 改写。
+func (s *ProxyService) SetPublicBaseURL(v string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.publicBaseURL = normalizePublicBaseURL(v)
+}
+
+// normalizePublicBaseURL 去除首尾空白与尾部斜杠，保证拼接后的 URL 干净。
+func normalizePublicBaseURL(v string) string {
+	return strings.TrimRight(strings.TrimSpace(v), "/")
 }
 
 // RewriteLocalUploadURLs 将响应 JSON 中 /uploads/ 开头的本地图片相对路径改写为完整 URL。
 // 未配置 PublicBaseURL 时保持原样，兼容同源部署；解析失败时不阻断，原样返回。
 func (s *ProxyService) RewriteLocalUploadURLs(raw json.RawMessage) json.RawMessage {
-	base := strings.TrimRight(s.PublicBaseURL, "/")
+	base := s.GetPublicBaseURL()
 	if base == "" {
 		return raw
 	}
