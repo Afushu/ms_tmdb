@@ -5,6 +5,9 @@ Port: 8888
 Timeout: 30000
 # 允许保存较大的季明细 payload（默认 1MB）
 MaxBytes: 8388608
+# 对外访问地址（可选）。配置后，本地上传图片 /uploads/xxx 会改写为完整 URL，
+# 供跨域调用方（如 media-saber）直接访问；留空则保持相对路径。
+# PublicBaseURL: "http://192.168.50.10:18080"
 
 # PostgreSQL 配置
 Postgres:

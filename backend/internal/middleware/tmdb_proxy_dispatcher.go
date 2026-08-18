@@ -20,17 +20,19 @@ type tmdbPatternRoute struct {
 }
 
 type tmdbRouteDispatcher struct {
-	client   *tmdbclient.Client
-	exacts   map[string]tmdbExactHandler
-	patterns []tmdbPatternRoute
+	client       *tmdbclient.Client
+	proxyService *proxy.ProxyService
+	exacts       map[string]tmdbExactHandler
+	patterns     []tmdbPatternRoute
 }
 
 type tmdbIDResolver func(id int) int
 
 func newTmdbRouteDispatcher(client *tmdbclient.Client, proxyService *proxy.ProxyService) *tmdbRouteDispatcher {
 	return &tmdbRouteDispatcher{
-		client: client,
-		exacts: buildExactHandlers(client),
+		client:       client,
+		proxyService: proxyService,
+		exacts:       buildExactHandlers(client),
 		patterns: []tmdbPatternRoute{
 			{pattern: regexp.MustCompile(`^/movie/(-?\d+)$`), handler: detailRoute(proxyService.GetMovieDetail)},
 			{pattern: regexp.MustCompile(`^/movie/(-?\d+)/(.+)$`), handler: passThroughMappedRoute(client, "/movie/%d/%s", map[int]tmdbIDResolver{1: proxyService.ResolveMovieSyncID}, 1, -1)},
@@ -49,6 +51,18 @@ func newTmdbRouteDispatcher(client *tmdbclient.Client, proxyService *proxy.Proxy
 }
 
 func (d *tmdbRouteDispatcher) dispatch(path string, opts *tmdbclient.RequestOption, r *http.Request) (json.RawMessage, error) {
+	data, err := d.dispatchRaw(path, opts, r)
+	if err != nil {
+		return nil, err
+	}
+	// 将 /uploads/ 本地图片相对路径改写为完整 URL，供 media-saber 等跨域调用方直接访问。
+	if d.proxyService != nil {
+		data = d.proxyService.RewriteLocalUploadURLs(data)
+	}
+	return data, nil
+}
+
+func (d *tmdbRouteDispatcher) dispatchRaw(path string, opts *tmdbclient.RequestOption, r *http.Request) (json.RawMessage, error) {
 	if handler, ok := d.exacts[path]; ok {
 		return handler(opts, r)
 	}

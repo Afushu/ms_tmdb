@@ -11,6 +11,10 @@ type Config struct {
 	rest.RestConf
 	ConfigFile string `json:"-"`
 
+	// 对外访问地址（可选）。配置后，本地上传图片 /uploads/xxx 会改写为完整 URL，
+	// 供跨域调用方（如 media-saber）直接访问；留空则保持相对路径。
+	PublicBaseURL string `json:",optional"`
+
 	// PostgreSQL 配置
 	Postgres PostgresConf
 
@@ -38,8 +42,8 @@ type TmdbAutoSyncConf struct {
 
 // TmdbLogConf TMDB 代理与回源请求日志配置
 type TmdbLogConf struct {
-	RetentionDays  int  `json:",optional"`
-	BodyLimitBytes int  `json:",optional"`
+	RetentionDays  int `json:",optional"`
+	BodyLimitBytes int `json:",optional"`
 	// ReclaimSpace 清理过期日志后是否执行 VACUUM FULL 归还磁盘空间，默认开启。
 	ReclaimSpace bool `json:",default=true"`
 }

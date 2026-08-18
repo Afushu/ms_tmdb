@@ -68,7 +68,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		StartupTimeout: c.Timeout,
 		DB:             db,
 		TmdbClient:     client,
-		ProxyService:   proxy.NewProxyService(db, client, c.Tmdb.DefaultLanguage, c.Tmdb.LocalWriteEnabled),
+		ProxyService:   proxy.NewProxyService(db, client, c.Tmdb.DefaultLanguage, c.Tmdb.LocalWriteEnabled, c.PublicBaseURL),
 		LogService:     logService,
 	}
 }

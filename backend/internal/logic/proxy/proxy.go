@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"sort"
@@ -20,20 +21,67 @@ const tvSeasonLocalDataKey = "_ms_tv_season_local"
 
 // ProxyService 代理服务，封装 Read-Through 缓存逻辑
 type ProxyService struct {
-	DB          *gorm.DB
-	TmdbClient  *tmdbclient.Client
-	DefaultLang string
-	mu          sync.RWMutex
+	DB            *gorm.DB
+	TmdbClient    *tmdbclient.Client
+	DefaultLang   string
+	PublicBaseURL string
+	mu            sync.RWMutex
 
 	localWriteEnabled bool
 }
 
-func NewProxyService(db *gorm.DB, client *tmdbclient.Client, defaultLang string, localWriteEnabled bool) *ProxyService {
+func NewProxyService(db *gorm.DB, client *tmdbclient.Client, defaultLang string, localWriteEnabled bool, publicBaseURL string) *ProxyService {
 	return &ProxyService{
 		DB:                db,
 		TmdbClient:        client,
 		DefaultLang:       strings.TrimSpace(defaultLang),
+		PublicBaseURL:     strings.TrimSpace(publicBaseURL),
 		localWriteEnabled: localWriteEnabled,
+	}
+}
+
+// RewriteLocalUploadURLs 将响应 JSON 中 /uploads/ 开头的本地图片相对路径改写为完整 URL。
+// 未配置 PublicBaseURL 时保持原样，兼容同源部署；解析失败时不阻断，原样返回。
+func (s *ProxyService) RewriteLocalUploadURLs(raw json.RawMessage) json.RawMessage {
+	base := strings.TrimRight(s.PublicBaseURL, "/")
+	if base == "" {
+		return raw
+	}
+	// 快速路径：响应不含本地上传路径时不解析，避免无谓的序列化开销与字节扰动。
+	if !bytes.Contains(raw, []byte("/uploads/")) {
+		return raw
+	}
+
+	var payload any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return raw
+	}
+	rewriteLocalUploadPaths(payload, base)
+
+	out, err := json.Marshal(payload)
+	if err != nil {
+		return raw
+	}
+	return out
+}
+
+// rewriteLocalUploadPaths 递归改写嵌套 JSON 中 /uploads/ 前缀的字符串值。
+func rewriteLocalUploadPaths(node any, baseURL string) {
+	switch v := node.(type) {
+	case map[string]any:
+		for key, val := range v {
+			if s, ok := val.(string); ok {
+				if strings.HasPrefix(s, "/uploads/") {
+					v[key] = baseURL + s
+				}
+				continue
+			}
+			rewriteLocalUploadPaths(val, baseURL)
+		}
+	case []any:
+		for _, item := range v {
+			rewriteLocalUploadPaths(item, baseURL)
+		}
 	}
 }
 
