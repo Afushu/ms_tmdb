@@ -27,7 +27,7 @@ type HomeMediaSection = {
 };
 
 const homeMediaViewStorageKey = "ms_tmdb_home_media_view_mode";
-const homeDashboardBaseLimit = 15;
+const homeDashboardRowCount = 2;
 const homeMediaViewOptions: Array<{ label: string; value: HomeMediaViewMode }> = [
   { label: "沉浸", value: "immersive" },
   { label: "紧凑", value: "compact" },
@@ -54,7 +54,7 @@ const hasRouteQuery = computed(() => Boolean(readQueryString(route.query.q)));
 const showSearchResults = computed(() => hasRouteQuery.value || searchResults.value.length > 0);
 const homeDashboardLimit = computed(() => {
   const columns = Math.max(homeMediaColumnCount.value, 1);
-  return Math.ceil(homeDashboardBaseLimit / columns) * columns;
+  return columns * homeDashboardRowCount;
 });
 const homeMediaSections = computed<HomeMediaSection[]>(() => [
   {
@@ -160,7 +160,12 @@ function currentHomeMediaColumnCount(): number {
   }
 
   if (homeMediaViewMode.value === "compact") {
-    if (window.innerWidth >= 768) return 5;
+    if (window.innerWidth >= 2560) return 12;
+    if (window.innerWidth >= 1920) return 10;
+    if (window.innerWidth >= 1536) return 8;
+    if (window.innerWidth >= 1280) return 6;
+    if (window.innerWidth >= 1024) return 5;
+    if (window.innerWidth >= 768) return 4;
     if (window.innerWidth >= 640) return 3;
     return 2;
   }
