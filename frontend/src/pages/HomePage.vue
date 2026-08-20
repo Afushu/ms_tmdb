@@ -16,7 +16,7 @@ import { isSameQuery } from "@/utils/routeQuery";
 const route = useRoute();
 const router = useRouter();
 
-type HomeMediaViewMode = "immersive" | "compact" | "list";
+type HomeMediaViewMode = "compact" | "list";
 type HomeMediaSectionKey = "latest" | "hot";
 
 type HomeMediaSection = {
@@ -29,7 +29,6 @@ type HomeMediaSection = {
 const homeMediaViewStorageKey = "ms_tmdb_home_media_view_mode";
 const homeDashboardRowCount = 2;
 const homeMediaViewOptions: Array<{ label: string; value: HomeMediaViewMode }> = [
-  { label: "沉浸", value: "immersive" },
   { label: "紧凑", value: "compact" },
   { label: "列表", value: "list" },
 ];
@@ -77,7 +76,7 @@ const resultSummary = computed(() => {
 });
 
 function normalizeHomeMediaViewMode(value: unknown): HomeMediaViewMode {
-  return value === "immersive" || value === "list" ? value : "compact";
+  return value === "list" ? value : "compact";
 }
 
 function readHomeMediaViewMode(): HomeMediaViewMode {
@@ -156,7 +155,7 @@ async function loadData() {
 
 function currentHomeMediaColumnCount(): number {
   if (typeof window === "undefined") {
-    return homeMediaViewMode.value === "compact" ? 5 : homeMediaViewMode.value === "immersive" ? 3 : 1;
+    return homeMediaViewMode.value === "compact" ? 5 : 1;
   }
 
   if (homeMediaViewMode.value === "compact") {
@@ -168,11 +167,6 @@ function currentHomeMediaColumnCount(): number {
     if (window.innerWidth >= 768) return 4;
     if (window.innerWidth >= 640) return 3;
     return 2;
-  }
-
-  if (homeMediaViewMode.value === "immersive") {
-    if (window.innerWidth >= 1024) return 3;
-    if (window.innerWidth >= 640) return 2;
   }
 
   return 1;
