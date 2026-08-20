@@ -1,4 +1,4 @@
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter, type LocationQueryRaw } from "vue-router";
 import { cancelPrefetch, prefetchMediaDetail, schedulePrefetch } from "@/api/prefetch";
 import {
@@ -42,6 +42,13 @@ export function useLibraryList(options: UseLibraryListOptions = {}) {
   const pageSize = ref(normalizePageSize(route.query.page_size));
   const initialLoading = computed(() => loading.value && !listLoaded.value);
 
+  // 卡片视图每页行数固定，列数随窗口宽度自适应，从而按屏幕大小决定每页卡片数量
+  const libraryGridRowCount = 2;
+  const gridColumnCount = ref(currentGridColumnCount());
+  const gridPageSize = computed(() => Math.max(gridColumnCount.value, 1) * libraryGridRowCount);
+  // 卡片视图按屏幕自适应每页数量；表格视图使用手动选择的每页数量
+  const effectivePageSize = computed(() => (viewMode.value === "grid" ? gridPageSize.value : pageSize.value));
+
   const deletingId = ref<number | null>(null);
   const deleteModalVisible = ref(false);
   const pendingDeleteItem = ref<LibraryListItem | null>(null);
@@ -74,6 +81,29 @@ export function useLibraryList(options: UseLibraryListOptions = {}) {
     const parsed = Number(readQueryString(value));
     if (pageSizeOptions.includes(parsed)) return parsed;
     return 20;
+  }
+
+  // 卡片网格列数与样式断点保持一致，随窗口宽度逐档变化
+  function currentGridColumnCount(): number {
+    if (typeof window === "undefined") return 5;
+    if (window.innerWidth >= 2560) return 12;
+    if (window.innerWidth >= 1920) return 10;
+    if (window.innerWidth >= 1536) return 8;
+    if (window.innerWidth >= 1280) return 6;
+    if (window.innerWidth >= 1024) return 5;
+    if (window.innerWidth >= 768) return 4;
+    if (window.innerWidth >= 640) return 3;
+    return 2;
+  }
+
+  function syncGridColumnCount() {
+    const next = currentGridColumnCount();
+    if (next === gridColumnCount.value) return;
+    gridColumnCount.value = next;
+    // 每页容量随列数变化时回到第一页，避免停留在超出范围的空页
+    if (page.value !== 1) {
+      page.value = 1;
+    }
   }
 
   function buildLibraryQuery(): LocationQueryRaw {
@@ -150,7 +180,7 @@ export function useLibraryList(options: UseLibraryListOptions = {}) {
     return {
       total: Number(payload.total ?? 0),
       page: Number(payload.page ?? 1),
-      page_size: Number(payload.page_size ?? pageSize.value),
+      page_size: Number(payload.page_size ?? effectivePageSize.value),
       results: normalizeListResults(payload.results),
     };
   }
@@ -159,7 +189,7 @@ export function useLibraryList(options: UseLibraryListOptions = {}) {
     const requestSeq = ++loadReqSeq;
     const targetTab = activeTab.value;
     const targetPage = page.value;
-    const targetPageSize = pageSize.value;
+    const targetPageSize = effectivePageSize.value;
     const targetKeyword = keyword.value;
     const targetSearchMode = searchMode.value;
     const hadData = listLoaded.value;
@@ -218,7 +248,7 @@ export function useLibraryList(options: UseLibraryListOptions = {}) {
   }
 
   function totalPages() {
-    return Math.ceil(total.value / pageSize.value) || 1;
+    return Math.ceil(total.value / effectivePageSize.value) || 1;
   }
 
   function gotoPage(p: number) {
@@ -341,9 +371,16 @@ export function useLibraryList(options: UseLibraryListOptions = {}) {
     },
   );
 
-  watch([activeTab, page, pageSize, keyword, searchMode], loadData);
+  watch([activeTab, page, effectivePageSize, keyword, searchMode], loadData);
   watch([activeTab, page, pageSize, keyword, searchMode, viewMode], syncLibraryQuery);
-  onMounted(loadData);
+  onMounted(() => {
+    syncGridColumnCount();
+    window.addEventListener("resize", syncGridColumnCount, { passive: true });
+    loadData();
+  });
+  onBeforeUnmount(() => {
+    window.removeEventListener("resize", syncGridColumnCount);
+  });
 
   return {
     activeTab,
