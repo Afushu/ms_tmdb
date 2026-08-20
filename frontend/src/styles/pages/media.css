@@ -2,6 +2,30 @@
   @apply grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5;
 }
 
+@media (min-width: 1280px) {
+  .poster-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1536px) {
+  .poster-grid {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1920px) {
+  .poster-grid {
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 2560px) {
+  .poster-grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+}
+
 .poster-card {
   @apply block overflow-hidden rounded-lg transition;
   background: var(--surface);
