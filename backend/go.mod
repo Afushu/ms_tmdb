@@ -1,6 +1,6 @@
 module ms_tmdb
 
-go 1.26
+go 1.27
 
 require (
 	github.com/zeromicro/go-zero v1.10.0
