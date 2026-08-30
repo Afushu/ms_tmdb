@@ -140,30 +140,6 @@ func trimPtrString(v *string) string {
 	return strings.TrimSpace(*v)
 }
 
-// buildGenresFromNames 把类型名转换为详情页可渲染结构
-func buildGenresFromNames(names []string) []map[string]interface{} {
-	result := make([]map[string]interface{}, 0, len(names))
-	seen := make(map[string]struct{}, len(names))
-	id := 1
-	for _, raw := range names {
-		name := strings.TrimSpace(raw)
-		if name == "" {
-			continue
-		}
-		key := strings.ToLower(name)
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		result = append(result, map[string]interface{}{
-			"id":   id,
-			"name": name,
-		})
-		id++
-	}
-	return result
-}
-
 // normalizeSyncMode 标准化同步模式，默认更新未本地修改字段
 func normalizeSyncMode(mode string) string {
 	switch strings.ToLower(strings.TrimSpace(mode)) {

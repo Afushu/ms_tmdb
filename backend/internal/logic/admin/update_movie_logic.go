@@ -152,7 +152,8 @@ func (l *UpdateMovieLogic) UpdateMovie(req *types.AdminUpdateReq) error {
 		hasFieldUpdate = true
 	}
 	if req.GenreNames != nil {
-		genres := buildGenresFromNames(req.GenreNames)
+		existing := genresFromRawJSON(movie.TmdbData, movie.LocalData)
+		genres := buildGenresWithOfficialIDs(l.svcCtx.TmdbClient, genreMediaTypeMovie, req.GenreNames, existing)
 		patch["genres"] = genres
 		hasFieldUpdate = true
 	}

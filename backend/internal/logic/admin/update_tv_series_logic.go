@@ -163,7 +163,8 @@ func (l *UpdateTvSeriesLogic) UpdateTvSeries(req *types.AdminUpdateReq) error {
 		hasFieldUpdate = true
 	}
 	if req.GenreNames != nil {
-		genres := buildGenresFromNames(req.GenreNames)
+		existing := genresFromRawJSON(tv.TmdbData, tv.LocalData)
+		genres := buildGenresWithOfficialIDs(l.svcCtx.TmdbClient, genreMediaTypeTV, req.GenreNames, existing)
 		patch["genres"] = genres
 		hasFieldUpdate = true
 	}
