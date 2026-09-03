@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -54,7 +56,7 @@ type Client struct {
 	mu         sync.RWMutex
 
 	// 简单令牌桶限流
-	rateLimiter chan struct{}
+	limiter *rate.Limiter
 
 	requestLogger RequestLogger
 }
@@ -75,29 +77,12 @@ func NewClient(apiKey, baseURL, defaultLanguage string, rateLimit int, proxyURL 
 			Timeout:   defaultHTTPTimeout,
 			Transport: newTransport(""),
 		},
-		rateLimiter: make(chan struct{}, rateLimit),
+		limiter: rate.NewLimiter(rate.Limit(rateLimit), rateLimit),
 	}
 
 	if err := c.SetProxy(proxyURL); err != nil {
 		logx.Errorf("初始化 TMDB 代理失败，已降级为直连: %v", err)
 	}
-
-	// 填充令牌桶
-	for i := 0; i < rateLimit; i++ {
-		c.rateLimiter <- struct{}{}
-	}
-
-	// 定时补充令牌
-	go func() {
-		ticker := time.NewTicker(time.Second / time.Duration(rateLimit))
-		defer ticker.Stop()
-		for range ticker.C {
-			select {
-			case c.rateLimiter <- struct{}{}:
-			default:
-			}
-		}
-	}()
 
 	return c
 }
@@ -223,11 +208,9 @@ func (c *Client) Get(path string, opts *RequestOption) (json.RawMessage, error) 
 		ctx = opts.Context
 	}
 
-	// 等待限流令牌时也要响应请求取消，避免客户端断开后继续阻塞。
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case <-c.rateLimiter:
+	// 等待限流令牌时响应 context 取消与超时。
+	if err := c.limiter.Wait(ctx); err != nil {
+		return nil, err
 	}
 
 	reqURL, err := c.buildURL(path, opts)

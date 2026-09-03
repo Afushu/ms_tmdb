@@ -19,6 +19,7 @@ import (
 const (
 	defaultAutoSyncBatchSize      = 50
 	maxAutoSyncBatchSize          = 500
+	autoSyncConcurrency           = 3
 	autoSyncLoopTick              = 10 * time.Second
 	defaultAutoSyncCronExpression = "*/30 * * * *"
 	autoSyncLogStatusSuccess      = "success"
@@ -324,8 +325,6 @@ func (s *LibraryAutoSyncScheduler) runOnce(ctx context.Context, settings AutoSyn
 func (s *LibraryAutoSyncScheduler) syncMovies(ctx context.Context, settings AutoSyncSettings, detail *autoSyncExecutionDetail) autoSyncStats {
 	var stats autoSyncStats
 
-	compareLogic := NewCompareMovieRemoteLogic(ctx, s.svcCtx)
-	syncLogic := NewSyncMovieLogic(ctx, s.svcCtx)
 
 	var lastID uint
 	for {
@@ -355,57 +354,75 @@ func (s *LibraryAutoSyncScheduler) syncMovies(ctx context.Context, settings Auto
 		if len(records) == 0 {
 			return stats
 		}
+		lastID = records[len(records)-1].ID
+		sem := make(chan struct{}, autoSyncConcurrency)
+		var batchWg sync.WaitGroup
+		var mu sync.Mutex
 
-		for _, record := range records {
-			lastID = record.ID
-			stats.checked++
-			needSync, remoteDiffFields, fieldChanges, err := s.needSyncMovie(record.TmdbID, s.svcCtx.ProxyService.ResolveMovieSyncID(record.TmdbID), settings.Mode, compareLogic)
-			if err != nil {
-				stats.failed++
-				detail.Failed = append(detail.Failed, autoSyncExecutionItem{
-					MediaType: "movie",
-					TmdbID:    record.TmdbID,
-					Name:      record.Title,
-					Message:   fmt.Sprintf("比较远程差异失败: %v", err),
+		for _, r := range records {
+			if ctx.Err() != nil {
+				break
+			}
+			record := r
+			sem <- struct{}{}
+			batchWg.Add(1)
+			go func() {
+				defer func() {
+					<-sem
+					batchWg.Done()
+				}()
+				compareLogic := NewCompareMovieRemoteLogic(ctx, s.svcCtx)
+				syncLogic := NewSyncMovieLogic(ctx, s.svcCtx)
+				needSync, remoteDiffFields, fieldChanges, err := s.needSyncMovie(record.TmdbID, s.svcCtx.ProxyService.ResolveMovieSyncID(record.TmdbID), settings.Mode, compareLogic)
+				mu.Lock()
+				defer mu.Unlock()
+				stats.checked++
+				if err != nil {
+					stats.failed++
+					detail.Failed = append(detail.Failed, autoSyncExecutionItem{
+						MediaType: "movie",
+						TmdbID:    record.TmdbID,
+						Name:      record.Title,
+						Message:   fmt.Sprintf("比较远程差异失败: %v", err),
+					})
+					return
+				}
+				if !needSync {
+					return
+				}
+				syncResp, err := syncLogic.SyncMovie(&types.AdminSyncReq{Id: record.TmdbID, Mode: settings.Mode})
+				if err != nil {
+					stats.failed++
+					logx.Errorf("自动同步电影失败: tmdb_id=%d, err=%v", record.TmdbID, err)
+					detail.Failed = append(detail.Failed, autoSyncExecutionItem{
+						MediaType: "movie",
+						TmdbID:    record.TmdbID,
+						Name:      record.Title,
+						Message:   fmt.Sprintf("执行同步失败: %v", err),
+					})
+					return
+				}
+				stats.synced++
+				detail.Synced = append(detail.Synced, autoSyncExecutionItem{
+					MediaType:         "movie",
+					TmdbID:            record.TmdbID,
+					Name:              record.Title,
+					Message:           syncResp.Message,
+					RemoteDiffFields:  remoteDiffFields,
+					FieldChanges:      fieldChanges,
+					ChangedFields:     syncResp.ChangedFields,
+					OverwrittenFields: syncResp.Overwritten,
+					KeptLocalFields:   syncResp.KeptLocalFields,
 				})
-				continue
-			}
-			if !needSync {
-				continue
-			}
-			syncResp, err := syncLogic.SyncMovie(&types.AdminSyncReq{Id: record.TmdbID, Mode: settings.Mode})
-			if err != nil {
-				stats.failed++
-				logx.Errorf("自动同步电影失败: tmdb_id=%d, err=%v", record.TmdbID, err)
-				detail.Failed = append(detail.Failed, autoSyncExecutionItem{
-					MediaType: "movie",
-					TmdbID:    record.TmdbID,
-					Name:      record.Title,
-					Message:   fmt.Sprintf("执行同步失败: %v", err),
-				})
-				continue
-			}
-			stats.synced++
-			detail.Synced = append(detail.Synced, autoSyncExecutionItem{
-				MediaType:         "movie",
-				TmdbID:            record.TmdbID,
-				Name:              record.Title,
-				Message:           syncResp.Message,
-				RemoteDiffFields:  remoteDiffFields,
-				FieldChanges:      fieldChanges,
-				ChangedFields:     syncResp.ChangedFields,
-				OverwrittenFields: syncResp.Overwritten,
-				KeptLocalFields:   syncResp.KeptLocalFields,
-			})
+			}()
 		}
-	}
+		batchWg.Wait()
+		}
 }
 
 func (s *LibraryAutoSyncScheduler) syncTvSeries(ctx context.Context, settings AutoSyncSettings, detail *autoSyncExecutionDetail) autoSyncStats {
 	var stats autoSyncStats
 
-	compareLogic := NewCompareTvRemoteLogic(ctx, s.svcCtx)
-	syncLogic := NewSyncTvSeriesLogic(ctx, s.svcCtx)
 
 	var lastID uint
 	for {
@@ -436,56 +453,75 @@ func (s *LibraryAutoSyncScheduler) syncTvSeries(ctx context.Context, settings Au
 			return stats
 		}
 
-		for _, record := range records {
-			lastID = record.ID
-			stats.checked++
-			needSync, remoteDiffFields, fieldChanges, err := s.needSyncTv(record.TmdbID, s.svcCtx.ProxyService.ResolveTVSyncID(record.TmdbID), settings.Mode, compareLogic)
-			if err != nil {
-				stats.failed++
-				detail.Failed = append(detail.Failed, autoSyncExecutionItem{
-					MediaType: "tv",
-					TmdbID:    record.TmdbID,
-					Name:      record.Name,
-					Message:   fmt.Sprintf("比较远程差异失败: %v", err),
+		lastID = records[len(records)-1].ID
+		sem := make(chan struct{}, autoSyncConcurrency)
+		var batchWg sync.WaitGroup
+		var mu sync.Mutex
+
+		for _, r := range records {
+			if ctx.Err() != nil {
+				break
+			}
+			record := r
+			sem <- struct{}{}
+			batchWg.Add(1)
+			go func() {
+				defer func() {
+					<-sem
+					batchWg.Done()
+				}()
+				compareLogic := NewCompareTvRemoteLogic(ctx, s.svcCtx)
+				syncLogic := NewSyncTvSeriesLogic(ctx, s.svcCtx)
+				needSync, remoteDiffFields, fieldChanges, err := s.needSyncTv(record.TmdbID, s.svcCtx.ProxyService.ResolveTVSyncID(record.TmdbID), settings.Mode, compareLogic)
+				mu.Lock()
+				defer mu.Unlock()
+				stats.checked++
+				if err != nil {
+					stats.failed++
+					detail.Failed = append(detail.Failed, autoSyncExecutionItem{
+						MediaType: "tv",
+						TmdbID:    record.TmdbID,
+						Name:      record.Name,
+						Message:   fmt.Sprintf("比较远程差异失败: %v", err),
+					})
+					return
+				}
+				if !needSync {
+					return
+				}
+				syncResp, err := syncLogic.SyncTvSeries(&types.AdminSyncReq{Id: record.TmdbID, Mode: settings.Mode})
+				if err != nil {
+					stats.failed++
+					logx.Errorf("自动同步剧集失败: tmdb_id=%d, err=%v", record.TmdbID, err)
+					detail.Failed = append(detail.Failed, autoSyncExecutionItem{
+						MediaType: "tv",
+						TmdbID:    record.TmdbID,
+						Name:      record.Name,
+						Message:   fmt.Sprintf("执行同步失败: %v", err),
+					})
+					return
+				}
+				stats.synced++
+				detail.Synced = append(detail.Synced, autoSyncExecutionItem{
+					MediaType:         "tv",
+					TmdbID:            record.TmdbID,
+					Name:              record.Name,
+					Message:           syncResp.Message,
+					RemoteDiffFields:  remoteDiffFields,
+					FieldChanges:      fieldChanges,
+					ChangedFields:     syncResp.ChangedFields,
+					OverwrittenFields: syncResp.Overwritten,
+					KeptLocalFields:   syncResp.KeptLocalFields,
 				})
-				continue
-			}
-			if !needSync {
-				continue
-			}
-			syncResp, err := syncLogic.SyncTvSeries(&types.AdminSyncReq{Id: record.TmdbID, Mode: settings.Mode})
-			if err != nil {
-				stats.failed++
-				logx.Errorf("自动同步剧集失败: tmdb_id=%d, err=%v", record.TmdbID, err)
-				detail.Failed = append(detail.Failed, autoSyncExecutionItem{
-					MediaType: "tv",
-					TmdbID:    record.TmdbID,
-					Name:      record.Name,
-					Message:   fmt.Sprintf("执行同步失败: %v", err),
-				})
-				continue
-			}
-			stats.synced++
-			detail.Synced = append(detail.Synced, autoSyncExecutionItem{
-				MediaType:         "tv",
-				TmdbID:            record.TmdbID,
-				Name:              record.Name,
-				Message:           syncResp.Message,
-				RemoteDiffFields:  remoteDiffFields,
-				FieldChanges:      fieldChanges,
-				ChangedFields:     syncResp.ChangedFields,
-				OverwrittenFields: syncResp.Overwritten,
-				KeptLocalFields:   syncResp.KeptLocalFields,
-			})
+			}()
 		}
-	}
+		batchWg.Wait()
+		}
 }
 
 func (s *LibraryAutoSyncScheduler) syncPeople(ctx context.Context, settings AutoSyncSettings, detail *autoSyncExecutionDetail) autoSyncStats {
 	var stats autoSyncStats
 
-	compareLogic := NewComparePersonRemoteLogic(ctx, s.svcCtx)
-	syncLogic := NewSyncPersonLogic(ctx, s.svcCtx)
 
 	var lastID uint
 	for {
@@ -516,49 +552,71 @@ func (s *LibraryAutoSyncScheduler) syncPeople(ctx context.Context, settings Auto
 			return stats
 		}
 
-		for _, record := range records {
-			lastID = record.ID
-			stats.checked++
-			needSync, remoteDiffFields, fieldChanges, err := s.needSyncPerson(record.TmdbID, compareLogic)
-			if err != nil {
-				stats.failed++
-				detail.Failed = append(detail.Failed, autoSyncExecutionItem{
-					MediaType: "person",
-					TmdbID:    record.TmdbID,
-					Name:      record.Name,
-					Message:   fmt.Sprintf("比较远程差异失败: %v", err),
+
+		lastID = records[len(records)-1].ID
+		sem := make(chan struct{}, autoSyncConcurrency)
+		var batchWg sync.WaitGroup
+		var mu sync.Mutex
+
+		for _, r := range records {
+			if ctx.Err() != nil {
+				break
+			}
+			record := r
+			sem <- struct{}{}
+			batchWg.Add(1)
+			go func() {
+				defer func() {
+					<-sem
+					batchWg.Done()
+				}()
+				compareLogic := NewComparePersonRemoteLogic(ctx, s.svcCtx)
+				syncLogic := NewSyncPersonLogic(ctx, s.svcCtx)
+				needSync, remoteDiffFields, fieldChanges, err := s.needSyncPerson(record.TmdbID, compareLogic)
+				mu.Lock()
+				defer mu.Unlock()
+				stats.checked++
+				if err != nil {
+					stats.failed++
+					detail.Failed = append(detail.Failed, autoSyncExecutionItem{
+						MediaType: "person",
+						TmdbID:    record.TmdbID,
+						Name:      record.Name,
+						Message:   fmt.Sprintf("比较远程差异失败: %v", err),
+					})
+					return
+				}
+				if !needSync {
+					return
+				}
+				syncResp, err := syncLogic.SyncPerson(&types.AdminSyncReq{Id: record.TmdbID, Mode: settings.Mode})
+				if err != nil {
+					stats.failed++
+					logx.Errorf("自动同步人物失败: tmdb_id=%d, err=%v", record.TmdbID, err)
+					detail.Failed = append(detail.Failed, autoSyncExecutionItem{
+						MediaType: "person",
+						TmdbID:    record.TmdbID,
+						Name:      record.Name,
+						Message:   fmt.Sprintf("执行同步失败: %v", err),
+					})
+					return
+				}
+				stats.synced++
+				detail.Synced = append(detail.Synced, autoSyncExecutionItem{
+					MediaType:         "person",
+					TmdbID:            record.TmdbID,
+					Name:              record.Name,
+					Message:           syncResp.Message,
+					RemoteDiffFields:  remoteDiffFields,
+					FieldChanges:      fieldChanges,
+					ChangedFields:     syncResp.ChangedFields,
+					OverwrittenFields: syncResp.Overwritten,
+					KeptLocalFields:   syncResp.KeptLocalFields,
 				})
-				continue
-			}
-			if !needSync {
-				continue
-			}
-			syncResp, err := syncLogic.SyncPerson(&types.AdminSyncReq{Id: record.TmdbID, Mode: settings.Mode})
-			if err != nil {
-				stats.failed++
-				logx.Errorf("自动同步人物失败: tmdb_id=%d, err=%v", record.TmdbID, err)
-				detail.Failed = append(detail.Failed, autoSyncExecutionItem{
-					MediaType: "person",
-					TmdbID:    record.TmdbID,
-					Name:      record.Name,
-					Message:   fmt.Sprintf("执行同步失败: %v", err),
-				})
-				continue
-			}
-			stats.synced++
-			detail.Synced = append(detail.Synced, autoSyncExecutionItem{
-				MediaType:         "person",
-				TmdbID:            record.TmdbID,
-				Name:              record.Name,
-				Message:           syncResp.Message,
-				RemoteDiffFields:  remoteDiffFields,
-				FieldChanges:      fieldChanges,
-				ChangedFields:     syncResp.ChangedFields,
-				OverwrittenFields: syncResp.Overwritten,
-				KeptLocalFields:   syncResp.KeptLocalFields,
-			})
+			}()
 		}
-	}
+		batchWg.Wait()
+		}
 }
 
 func (s *LibraryAutoSyncScheduler) needSyncMovie(displayTmdbID int, remoteTmdbID int, mode string, compareLogic *CompareMovieRemoteLogic) (bool, []string, []autoSyncFieldChange, error) {

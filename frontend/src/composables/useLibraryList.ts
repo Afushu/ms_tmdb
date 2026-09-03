@@ -31,6 +31,7 @@ export function useLibraryList(options: UseLibraryListOptions = {}) {
   const searchMode = ref<SearchMode>(normalizeSearchMode(route.query.mode));
   const keywordInput = ref(readQueryString(route.query.q));
   const keyword = ref(readQueryString(route.query.q));
+  let searchDebounceTimer: number | undefined;
   const loading = ref(false);
   const listLoaded = ref(false);
   const loadError = ref("");
@@ -237,11 +238,15 @@ export function useLibraryList(options: UseLibraryListOptions = {}) {
   }
 
   function applySearch() {
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = undefined;
     keyword.value = keywordInput.value.trim();
     page.value = 1;
   }
 
   function resetSearch() {
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = undefined;
     keywordInput.value = "";
     keyword.value = "";
     page.value = 1;
@@ -371,6 +376,19 @@ export function useLibraryList(options: UseLibraryListOptions = {}) {
     },
   );
 
+  watch(keywordInput, (val) => {
+    const next = val.trim();
+    if (next === keyword.value) return;
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = window.setTimeout(() => {
+      keyword.value = next;
+      page.value = 1;
+    }, 350);
+  });
+
+  onBeforeUnmount(() => {
+    clearTimeout(searchDebounceTimer);
+  });
   watch([activeTab, page, effectivePageSize, keyword, searchMode], loadData);
   watch([activeTab, page, pageSize, keyword, searchMode, viewMode], syncLibraryQuery);
   onMounted(() => {
