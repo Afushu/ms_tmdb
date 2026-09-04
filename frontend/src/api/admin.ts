@@ -287,6 +287,11 @@ export type AdminUploadResp = {
   path: string;
 };
 
+export type AdminVersionResp = {
+  version: string;
+  go: string;
+};
+
 export type AdminMovieListItem = MediaSummary & {
   tmdb_id: number;
   title: string;
@@ -528,4 +533,8 @@ export function uploadAdminImage(file: File) {
       "Content-Type": "multipart/form-data",
     },
   });
+}
+
+export function getVersion(options?: RequestOptions) {
+  return http.get<AdminVersionResp>("/api/admin/version", { ...options });
 }

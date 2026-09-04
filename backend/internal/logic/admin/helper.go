@@ -17,6 +17,8 @@ import (
 	"gorm.io/gorm"
 )
 
+var Version = "dev"
+
 const (
 	syncModeOverwriteAll    = "overwrite_all"
 	syncModeUpdateUnchanged = "update_unmodified"
